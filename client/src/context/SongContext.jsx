@@ -111,6 +111,7 @@ export const SongProvider = ({ children }) => {
     });
 
     setValue("songFile", file, { shouldValidate: true, shouldDirty: true });
+    return res.data;
   };
 
   // Step 2: final submit

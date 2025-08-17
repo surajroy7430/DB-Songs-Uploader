@@ -23,6 +23,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 export default function SongUploadForm() {
@@ -37,6 +39,9 @@ export default function SongUploadForm() {
   } = useSongForm();
   const [singerInput, setSingerInput] = useState("");
   const [singers, setSingers] = useState([]);
+  const [fileSize, setFileSize] = useState(null);
+  const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState("");
 
   const defaultFormValues = {
     title: "",
@@ -53,29 +58,65 @@ export default function SongUploadForm() {
     songFile: null,
   };
 
-  // const artists = form.watch("artists") || [];
   const genre = form.watch("genre") || [];
 
   const onFileChange = async (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    form.setValue("songFile", f);
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    await uploadPreview(f);
-    e.target.value = "";
+    form.setValue("songFile", file);
 
-    const previewArtists = form.getValues("artists") || [];
-    if (previewArtists.length) {
-      const artistNames = previewArtists.flatMap((item) =>
-        typeof item === "string"
-          ? item
-              .split(",")
-              .map((name) => name.trim())
-              .filter(Boolean)
-          : []
-      );
-      setSingers(artistNames.map((name) => ({ name, bio: "", imageUrl: "" })));
+    try {
+      // Step 1: Audio Compression
+      if (file.size >= 6 * 1024 * 1024) {
+        setProgress(0);
+        setStatus("Compressing Audio...");
+
+        for (let i = 1; i <= 100; i += 20) {
+          await new Promise((r) => setTimeout(r, 80));
+          setProgress(i);
+        }
+      }
+
+      // Step 2: Extracting Metadata
+      setProgress(0);
+      setStatus("Extracting Metadata...");
+      for (let i = 1; i <= 100; i += 20) {
+        await new Promise((r) => setTimeout(r, 80));
+        setProgress(i);
+      }
+
+      const res = await uploadPreview(file);
+      if (res?.fileSize) setFileSize(res.fileSize);
+      toast.info("Preview extracted successfully");
+
+      setTimeout(() => {
+        setProgress(0);
+        setStatus("");
+      }, 800);
+
+      const previewArtists = form.getValues("artists") || [];
+      if (previewArtists.length) {
+        const artistNames = previewArtists.flatMap((item) =>
+          typeof item === "string"
+            ? item
+                .split(",")
+                .map((name) => name.trim())
+                .filter(Boolean)
+            : []
+        );
+        setSingers(
+          artistNames.map((name) => ({ name, bio: "", imageUrl: "" }))
+        );
+      }
+    } catch (error) {
+      console.error("Preview failed:", error);
+      toast.error("Failed to extract preview");
+      setProgress(0);
+      setStatus("");
     }
+
+    e.target.value = "";
   };
 
   const addSinger = () => {
@@ -112,23 +153,40 @@ export default function SongUploadForm() {
     setSingers([]);
     setSingerInput("");
     setShowLyrics(false);
+    setFileSize(null);
   };
 
   const onSubmit = async (values) => {
     try {
       const finalValues = { ...values, singersInfo: singers };
 
+      setProgress(0);
+      setStatus("Uploading Song...");
+      for (let i = 1; i <= 100; i += 10) {
+        await new Promise((r) => setTimeout(r, 100));
+        setProgress(i);
+      }
+
       const res = await saveSong(finalValues);
       toast.success("Song saved! ID: " + res?.songId);
 
       resetForm();
+
+      setTimeout(() => {
+        setProgress(0);
+        setStatus("");
+      }, 800);
     } catch (error) {
       console.error("Error while saving song:", error);
       toast.error("Failed to saved song.");
+      setProgress(0);
+      setStatus("");
     }
   };
   const onError = (err) => {
     console.log("VALIDATION ERRORS", err);
+    setProgress(0);
+    setStatus("");
   };
 
   return (
@@ -171,6 +229,23 @@ export default function SongUploadForm() {
                   </Label>
                 </div>
               </FormControl>
+
+              {status && (
+                <div className="flex flex-col gap-1 mt-3">
+                  <p className="text-xs text-blue-300">
+                    {status} ({progress}%)
+                  </p>
+                  <Progress value={progress} className="h-2 bg-zinc-700" />
+                </div>
+              )}
+
+              {fileSize && (
+                <div className="mt-2">
+                  <Badge variant="secondary" className="text-xs px-2 py-1">
+                    {`Size: ${(fileSize / (1024 * 1024)).toFixed(2)} MB`}
+                  </Badge>
+                </div>
+              )}
             </FormItem>
           )}
         />
