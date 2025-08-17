@@ -10,10 +10,19 @@ app.use(express.json());
 app.use(cors());
 
 app.use("/minxs-music", songRouter);
-connectToDB();
 
-app.use((req, res) => {
-  res.send(`server running on port -${4000}`);
+let isDBConnected = false;
+const PORT = process.env.PORT || 4000;
+
+connectToDB().then((status) => {
+  isDBConnected = status;
+
+  app.listen(PORT, () => console.log(`Server running on port - ${PORT}`));
 });
 
-app.listen(4000, () => console.log(`Server running on port - ${4000}`));
+app.get("/", (req, res) => {
+  res.send({
+    message: `Server running on port - ${PORT}`,
+    db: isDBConnected ? "Connected to MongoDB" : "Failed to connect to MongoDB",
+  });
+});
