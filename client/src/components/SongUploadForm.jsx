@@ -1,7 +1,23 @@
-import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { cn } from "../lib/utils";
+import { useId, useState } from "react";
 import { useSongForm } from "../context/SongContext";
-import { CloudUpload } from "lucide-react";
+import {
+  Calendar,
+  CassetteTape,
+  Copyright,
+  Disc3,
+  DiscAlbum,
+  FileKey2,
+  FileMusic,
+  Guitar,
+  Hourglass,
+  Languages,
+  Link,
+  MicVocal,
+  Music2,
+  UserPen,
+  UserPlus,
+} from "lucide-react";
 import {
   Form,
   FormControl,
@@ -27,6 +43,46 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
+const TextInputField = ({
+  name,
+  control,
+  label,
+  placeholder,
+  icon: Icon,
+  type = "text",
+  ...props
+}) => {
+  const id = useId();
+
+  return (
+    <FormField
+      name={name}
+      control={control}
+      render={({ field }) => (
+        <FormItem className="mt-3">
+          {label && <FormLabel htmlFor={id}>{label}</FormLabel>}
+
+          <FormControl>
+            <div className="relative">
+              {Icon && (
+                <Icon className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              )}
+              <Input
+                id={id}
+                type={type}
+                placeholder={placeholder}
+                {...field}
+                {...props}
+                className={cn(Icon ? "pl-8" : "", props.className)}
+              />
+            </div>
+          </FormControl>
+        </FormItem>
+      )}
+    />
+  );
+};
+
 export default function SongUploadForm() {
   const {
     form,
@@ -37,8 +93,8 @@ export default function SongUploadForm() {
     toggleLyrics,
     handleLyricsChange,
   } = useSongForm();
-  const [singerInput, setSingerInput] = useState("");
-  const [singers, setSingers] = useState([]);
+  const [artistInput, setArtistInput] = useState("");
+  const [artists, setArtists] = useState([]);
   const [fileSize, setFileSize] = useState(null);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
@@ -96,19 +152,7 @@ export default function SongUploadForm() {
       }, 800);
 
       const previewArtists = form.getValues("artists") || [];
-      if (previewArtists.length) {
-        const artistNames = previewArtists.flatMap((item) =>
-          typeof item === "string"
-            ? item
-                .split(",")
-                .map((name) => name.trim())
-                .filter(Boolean)
-            : []
-        );
-        setSingers(
-          artistNames.map((name) => ({ name, bio: "", imageUrl: "" }))
-        );
-      }
+      setArtists(previewArtists);
     } catch (error) {
       console.error("Preview failed:", error);
       toast.error("Failed to extract preview");
@@ -119,24 +163,45 @@ export default function SongUploadForm() {
     e.target.value = "";
   };
 
-  const addSinger = () => {
-    const names = singerInput
+  const addArtist = () => {
+    const names = artistInput
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    const newSingers = names.map((name) => ({ name, bio: "", imageUrl: "" }));
-    setSingers([...singers, ...newSingers]);
-    setSingerInput("");
+
+    const newArtists = [
+      ...artists,
+      ...names.map((name) => ({ name, bio: "", imageUrl: "" })),
+    ];
+
+    setArtists(newArtists);
+    form.setValue("artists", newArtists, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+
+    setArtistInput("");
   };
 
   const updateSinger = (index, key, value) => {
-    const newSingers = [...singers];
-    newSingers[index][key] = value;
-    setSingers(newSingers);
+    const newArtists = [...artists];
+    newArtists[index][key] = value;
+
+    setArtists(newArtists);
+    form.setValue("artists", newArtists, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
   };
 
   const removeSinger = (index) => {
-    setSingers(singers.filter((_, i) => i !== index));
+    const newArtists = artists.filter((_, i) => i !== index);
+
+    setArtists(newArtists);
+    form.setValue("artists", newArtists, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
   };
 
   const onGenreChange = (e) => {
@@ -150,16 +215,14 @@ export default function SongUploadForm() {
   const resetForm = () => {
     form.reset(defaultFormValues);
     form.setValue("songFile", null);
-    setSingers([]);
-    setSingerInput("");
+    setArtists([]);
+    setArtistInput("");
     setShowLyrics(false);
     setFileSize(null);
   };
 
   const onSubmit = async (values) => {
     try {
-      const finalValues = { ...values, singersInfo: singers };
-
       setProgress(0);
       setStatus("Uploading Song...");
       for (let i = 1; i <= 100; i += 10) {
@@ -167,7 +230,7 @@ export default function SongUploadForm() {
         setProgress(i);
       }
 
-      const res = await saveSong(finalValues);
+      const res = await saveSong(values);
       toast.success("Song saved! ID: " + res?.songId);
 
       resetForm();
@@ -193,12 +256,12 @@ export default function SongUploadForm() {
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit, onError)}
-        className="flex flex-col gap-4 p-6 shadow-lg bg-zinc-900 rounded-lg"
+        className="flex flex-col gap-4 p-6 bg-card rounded-lg"
       >
         <FormField
           name="songFile"
           control={form.control}
-          render={() => (
+          render={({ field }) => (
             <FormItem>
               <FormControl>
                 <div
@@ -211,12 +274,13 @@ export default function SongUploadForm() {
                   onDragEnter={(e) => e.preventDefault()}
                 >
                   <Label
-                    className="flex flex-col items-center justify-center border border-dashed
-                    border-zinc-600 bg-zinc-800/40 hover:bg-zinc-800 rounded 
-                    cursor-pointer transition text-center min-h-[200px]"
+                    className={cn(
+                      "flex flex-col items-center justify-center border border-dashed bg-zinc-800/40 hover:bg-zinc-800 rounded cursor-pointer transition text-center min-h-[200px]",
+                      form.formState.errors.songFile ? "border-red-500" : "border-zinc-600"
+                    )}
                   >
-                    <CloudUpload size={35} className="text-zinc-400" />
-                    <p className="mb-0 text-sm text-blue-200">
+                    <FileMusic size={40} className="text-zinc-400" />
+                    <p className="mb-0 mt-2 text-sm text-blue-200">
                       {form.getValues("songFile")?.name ||
                         "Choose audio file or drag & drop"}
                     </p>
@@ -224,7 +288,10 @@ export default function SongUploadForm() {
                       type="file"
                       accept="audio/*"
                       className="hidden"
-                      onChange={onFileChange}
+                      onChange={(e) => {
+                        field.onChange(e.target.files?.[0]);
+                        onFileChange(e);
+                      }}
                     />
                   </Label>
                 </div>
@@ -251,46 +318,43 @@ export default function SongUploadForm() {
         />
         <hr />
 
-        <FormField
+        {/* Title */}
+        <TextInputField
           name="title"
           control={form.control}
-          render={({ field }) => (
-            <FormItem className="mt-3">
-              <FormLabel>Title</FormLabel>
-              <FormControl>
-                <Input {...field} placeholder="Title" />
-              </FormControl>
-            </FormItem>
-          )}
+          label="Title"
+          placeholder="song title"
+          icon={Music2}
         />
-        <FormField
+
+        {/* Album */}
+        <TextInputField
           name="album"
           control={form.control}
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Album</FormLabel>
-              <FormControl>
-                <Input {...field} placeholder="Album" />
-              </FormControl>
-            </FormItem>
-          )}
+          label="Album"
+          placeholder="song album"
+          icon={Disc3}
         />
 
         {/* Artists */}
         <div className="flex flex-col gap-2">
           <FormLabel>Artists</FormLabel>
           <div className="flex gap-2">
-            <Input
-              placeholder="Enter Artist Names"
-              value={singerInput}
-              onChange={(e) => setSingerInput(e.target.value)}
-            />
-            <Button type="button" onClick={addSinger}>
-              Add
+            <div className="relative flex-1">
+              <Guitar className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="artist names (comma-seperated)"
+                value={artistInput}
+                onChange={(e) => setArtistInput(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <Button type="button" onClick={addArtist}>
+              <UserPlus className="h-4 w-4" strokeWidth={3} />
             </Button>
           </div>
 
-          {singers.length > 0 && (
+          {artists.length > 0 && (
             <div className="overflow-x-auto mt-2 rounded-lg border border-border">
               <Table>
                 <TableHeader>
@@ -310,7 +374,7 @@ export default function SongUploadForm() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {singers.map((singer, idx) => (
+                  {artists.map((singer, idx) => (
                     <TableRow key={idx}>
                       <TableCell className="p-2 border">
                         <Input
@@ -360,45 +424,31 @@ export default function SongUploadForm() {
           )}
         </div>
 
-        <FormField
+        {/* Language */}
+        <TextInputField
           name="language"
           control={form.control}
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Language</FormLabel>
-              <FormControl>
-                <Input {...field} placeholder="Language" />
-              </FormControl>
-            </FormItem>
-          )}
+          label="Language"
+          placeholder="audio language"
+          icon={Languages}
         />
-        <FormField
+
+        {/* Released Year */}
+        <TextInputField
           name="releasedYear"
           control={form.control}
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Released Year</FormLabel>
-              <FormControl>
-                <Input {...field} placeholder="Released Year (YYYY)" />
-              </FormControl>
-
-              <FormMessage />
-            </FormItem>
-          )}
+          label="Released Year"
+          placeholder="released year (YYYY)"
+          icon={Calendar}
         />
-        <FormField
+
+        {/* Duration */}
+        <TextInputField
           name="duration"
           control={form.control}
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Duration</FormLabel>
-              <FormControl>
-                <Input {...field} placeholder="Duration (in seconds)" />
-              </FormControl>
-
-              <FormMessage />
-            </FormItem>
-          )}
+          label="Total Duration"
+          placeholder="duration (seconds)"
+          icon={Hourglass}
         />
 
         <FormField
@@ -408,76 +458,61 @@ export default function SongUploadForm() {
             <FormItem>
               <FormLabel>Genre</FormLabel>
               <FormControl>
-                <Input
-                  placeholder="Genre (comma-seperated)"
-                  defaultValue={genre.join(", ")}
-                  onChange={onGenreChange}
-                />
+                <div className="relative">
+                  <CassetteTape className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="genre (comma-seperated)"
+                    defaultValue={genre.join(", ")}
+                    onChange={onGenreChange}
+                    className="pl-8"
+                  />
+                </div>
               </FormControl>
             </FormItem>
           )}
         />
-        <FormField
+
+        {/* Cover Image Key */}
+        <TextInputField
           name="coverImageKey"
           control={form.control}
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Cover Image Key</FormLabel>
-              <FormControl>
-                <Input placeholder="Cover Image Key" {...field} />
-              </FormControl>
-            </FormItem>
-          )}
+          label="Cover Image Key"
+          placeholder="covers/filename"
+          icon={FileKey2}
         />
-        <FormField
+        {/* Album Cover Key */}
+        <TextInputField
           name="albumCoverKey"
           control={form.control}
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Album Cover Key</FormLabel>
-              <FormControl>
-                <Input placeholder="Album Cover Key" {...field} />
-              </FormControl>
-            </FormItem>
-          )}
+          label="Album Image Key"
+          placeholder="albums/filename"
+          icon={FileKey2}
         />
 
-        <FormField
+        {/* Cover Image URL */}
+        <TextInputField
           name="clientCoverImageUrl"
           control={form.control}
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Cover Image URL (Optional)</FormLabel>
-              <FormControl>
-                <Input placeholder="Copy and paste url" {...field} />
-              </FormControl>
-            </FormItem>
-          )}
+          label="Cover Image URL (Optional)"
+          placeholder="copy and paste url"
+          icon={Link}
         />
-
-        <FormField
+        {/* Album Image URL */}
+        <TextInputField
           name="clientAlbumCoverUrl"
           control={form.control}
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Album Cover URL (Optional)</FormLabel>
-              <FormControl>
-                <Input placeholder="Copy and paste url" {...field} />
-              </FormControl>
-            </FormItem>
-          )}
+          label="Album Image URL (Optional)"
+          placeholder="copy and paste url"
+          icon={Link}
         />
-        <FormField
+
+        {/* Copyright */}
+        <TextInputField
           name="copyright"
           control={form.control}
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Copyright &copy;</FormLabel>
-              <FormControl>
-                <Input placeholder="copyright" {...field} />
-              </FormControl>
-            </FormItem>
-          )}
+          label="Copyright"
+          placeholder="copyright"
+          icon={Copyright}
         />
 
         <div className="flex flex-col gap-2">
@@ -488,23 +523,34 @@ export default function SongUploadForm() {
 
           {showLyrics && (
             <>
-              <Textarea
-                placeholder="Enter lyrics here"
-                onChange={handleLyricsChange}
-                rows={8}
-              />
+              <div className="relative">
+                <MicVocal className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Textarea
+                  placeholder="Enter lyrics here"
+                  onChange={handleLyricsChange}
+                  rows={8}
+                  className="pl-8"
+                />
+              </div>
 
-              <Input
-                type="text"
-                placeholder="Enter writer names (comma seperated)"
-                {...form.register("lyricsData.writers")}
-                className="capitalize"
-              />
-              <Input
-                type="text"
-                placeholder="Lyrics poweredBy (URL) - eg. https://www.musixmatch.com"
-                {...form.register("lyricsData.poweredBy")}
-              />
+              <div className="relative">
+                <UserPen className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Enter writer names (comma seperated)"
+                  {...form.register("lyricsData.writers")}
+                  className="capitalize pl-8"
+                />
+              </div>
+              <div className="relative">
+                <Link className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Lyrics poweredBy (URL) - eg. https://www.musixmatch.com"
+                  {...form.register("lyricsData.poweredBy")}
+                  className="pl-8"
+                />
+              </div>
             </>
           )}
         </div>
@@ -513,7 +559,7 @@ export default function SongUploadForm() {
           type="button"
           disabled={form.formState.isSubmitting}
           onClick={resetForm}
-          className="cursor-pointer text-white bg-red-500 hover:bg-red-600"
+          className="cursor-pointer text-white bg-red-500 hover:bg-red-600 py-5.5"
         >
           Reset
         </Button>
@@ -521,7 +567,7 @@ export default function SongUploadForm() {
         <Button
           type="submit"
           disabled={form.formState.isSubmitting}
-          className="cursor-pointer text-white bg-green-600 hover:bg-green-700"
+          className="cursor-pointer py-6 text-white bg-emerald-600 hover:bg-emerald-700"
         >
           {form.formState.isSubmitting ? "Saving..." : "Save Song"}
         </Button>

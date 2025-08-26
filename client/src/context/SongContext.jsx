@@ -13,10 +13,19 @@ const currentYear = new Date().getFullYear();
 const songSchema = z.object({
   title: z.string().trim().min(1),
   album: z.string().trim().min(1),
-  artists: z.array(z.string().trim()).min(1),
+  artists: z.array(
+    z.object({
+      name: z.string().trim().min(1),
+      bio: z.string().trim().optional(),
+      imageUrl: z.url().trim().optional().or(z.literal("")).nullable(),
+    })
+  ),
   language: z.string().trim().min(1),
-  duration: z.string().trim().min(1),
-  releasedYear: z.string().trim().min(1),
+  duration: z.preprocess((v) => Number(v), z.number().min(1)),
+  releasedYear: z.preprocess(
+    (v) => Number(v),
+    z.number().min(1900).max(currentYear)
+  ),
   type: z.string().trim().optional().or(z.literal("")),
   genre: z.array(z.string().trim()).min(1),
   lyricsData: z
@@ -24,14 +33,14 @@ const songSchema = z.object({
       hasLyrics: z.boolean().default(false),
       lyrics: z.array(z.string()).default([]),
       writers: z.string().trim().optional().or(z.literal("")),
-      poweredBy: z.string().trim().optional().or(z.literal("")),
+      poweredBy: z.url().trim().optional().or(z.literal("")),
     })
     .optional()
     .default({ hasLyrics: false, lyrics: [] }),
   coverImageKey: z.string().trim().optional().or(z.literal("")),
   albumCoverKey: z.string().trim().optional().or(z.literal("")),
-  clientCoverImageUrl: z.string().trim().optional().or(z.literal("")),
-  clientAlbumCoverUrl: z.string().trim().optional().or(z.literal("")),
+  clientCoverImageUrl: z.url().trim().optional().or(z.literal("")).nullable(),
+  clientAlbumCoverUrl: z.url().trim().optional().or(z.literal("")).nullable(),
   copyright: z.string().trim().optional().or(z.literal("")),
   songFile: z.any().refine((f) => f instanceof File, "Song file is required"),
 });
@@ -98,13 +107,39 @@ export const SongProvider = ({ children }) => {
       }
 
       // if server returns comma-separated for arrays, normalize to arrays
-      if (["artists", "genre"].includes(key) && typeof val === "string") {
+      if (key === "artists") {
+        let arr = [];
+
+        if (Array.isArray(val)) {
+          arr = val
+            .flatMap((name) =>
+              typeof name === "string"
+                ? name
+                    .split(/,\s*/g)
+                    .map((s) => s.trim())
+                    .filter(Boolean)
+                : []
+            )
+            .map((name) => ({ name, bio: "", imageUrl: "" }));
+        } else if (typeof val === "string") {
+          arr = val
+            .split(/,\s*/g)
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((name) => ({ name, bio: "", imageUrl: "" }));
+        }
+        setValue("artists", arr, { shouldValidate: false, shouldDirty: true });
+        return;
+      }
+
+      // if server returns comma-separated for arrays, normalize to arrays
+      if (key === "genre" && typeof val === "string") {
         const arr = val
-          .split(",")
+          .split(", " || ",")
           .map((s) => s.trim())
           .filter(Boolean);
 
-        setValue(key, arr, { shouldValidate: true, shouldDirty: true });
+        setValue("genre", arr, { shouldValidate: true, shouldDirty: true });
       } else {
         setValue(key, val, { shouldValidate: false, shouldDirty: true });
       }
@@ -120,12 +155,14 @@ export const SongProvider = ({ children }) => {
 
     if (values.songFile) data.append("song", values.songFile);
 
-    (values.artists || []).forEach((val) => data.append("artists", val));
-    (values.genre || []).forEach((val) => data.append("genre", val));
-
-    if (values.singersInfo) {
-      data.append("singersInfo", JSON.stringify(values.singersInfo));
+    (values.artists || []).forEach((artist) => {
+      if (artist?.name) data.append("artists", artist.name);
+    });
+    if (values.artists?.length) {
+      data.append("singersInfo", JSON.stringify(values.artists));
     }
+
+    (values.genre || []).forEach((val) => data.append("genre", val));
 
     Object.entries(values).forEach(([key, val]) => {
       if (["songFile", "artists", "genre", "singersInfo"].includes(key)) return;

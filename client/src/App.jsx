@@ -1,10 +1,10 @@
 import { Toaster } from "@/components/ui/sonner";
-import SongUploadForm from "./components/SongUploadForm";
+import AppRoutes from "./routes/AppRoutes";
 
 const App = () => {
   return (
     <div className="min-h-screen p-6 max-w-5xl w-full mx-auto">
-      <SongUploadForm />
+      <AppRoutes />
 
       <Toaster position="top-right" richColors closeButton />
     </div>
