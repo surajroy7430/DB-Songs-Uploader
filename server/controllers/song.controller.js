@@ -1,25 +1,27 @@
+const fs = require("fs");
+const path = require("path");
+const { Song, Album, Artist } = require("../models/song.model");
+const { SongSummary } = require("../models/songSummary.model");
 const { extractMetadata } = require("../services/metadata.service");
-const { saveSongToDB } = require("../services/song.service");
 const {
   handleAudioCompression,
   uploadSongToS3,
 } = require("../services/file.service");
-const {
-  handleCoverImage,
-  handleAlbumCover,
-} = require("../services/coverImage.service");
-const { Song, Album, Artist } = require("../models/song.model");
-const { SongSummary } = require("../models/songSummary.model");
+const { extractAndUploadCover } = require("../services/coverImage.service");
+const { saveSongToDB } = require("../services/song.service");
 const { deleteFromS3, generateSignedUrl } = require("../utils/s3Upload");
 
 const uploadFilePreview = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
-    const { buffer, size } = await handleAudioCompression(req.file);
-    const metadata = await extractMetadata(buffer, req.file.originalname);
+    const { path, size } = await handleAudioCompression(
+      req.file.path,
+      req.file.mimetype
+    );
+    const metadata = await extractMetadata(path, req.file.originalname);
 
-    res.json({ ...metadata, fileSize: size });
+    res.json({ ...metadata, fileSize: size, tempPath: path });
   } catch (error) {
     console.log("Error preview file", error.message);
     res.status(500).json({ error: "Failed to extract metadata" });
@@ -27,12 +29,15 @@ const uploadFilePreview = async (req, res) => {
 };
 
 const saveSong = async (req, res) => {
-  try {
-    if (!req.file)
-      return res.status(400).json({ error: "No audio file provided" });
+  let finalPath;
 
+  try {
     const {
+      tempPath,
+      title,
       album: albumName,
+      releasedYear,
+      language,
       lyricsData,
       coverImageKey,
       albumCoverKey,
@@ -42,27 +47,43 @@ const saveSong = async (req, res) => {
       ...rest
     } = req.body;
 
-    let songKey = req.file.originalname
-      .toLowerCase()
-      .replace(/\s*\(.*?\)|\s*\[.*?\]|\s*\{.*?\}/g, "") // remove brackets data
-      .replace(/[\s_,]+/g, "-") // replace spaces/commas/underscores with "-"
-      .replace(/-+/g, "-") // collapse multiple dashes
-      .trim();
+    if (!tempPath) return res.status(404).json({ error: "Missing file path" });
+
+    finalPath = tempPath;
+
+    // --------------- SONG KEY --------------------
+    let songKey = path.basename(finalPath).replace("-compressed", "");
     songKey = `songs/${songKey}`;
 
-    const songUrl = await uploadSongToS3(req.file, songKey);
+    // ------------------- Check DB for Duplication -------------
+    const existingSong = await Song.findOne({ title, releasedYear, language });
+
+    if (existingSong) {
+      return res
+        .status(409)
+        .json({ error: "Song already exists in DB", songId: existingSong._id });
+    }
+
+    // ------------------- Upload song to S3 (if not existed) --------------
+    const songUrl = await uploadSongToS3(
+      finalPath,
+      songKey,
+      req.file?.mimetype
+    );
 
     // --------------- Cover Images -------------------
-    const coverImageUrl = await handleCoverImage(
-      req.file,
-      coverImageKey,
-      clientCoverImageUrl
-    );
-    const albumCoverUrl = await handleAlbumCover(
-      req.file,
-      albumCoverKey,
-      clientAlbumCoverUrl
-    );
+    const coverImageUrl = await extractAndUploadCover({
+      filePath: finalPath,
+      s3Key: coverImageKey,
+      clientUrl: clientCoverImageUrl,
+      checkExists: false,
+    });
+    const albumCoverUrl = await extractAndUploadCover({
+      filePath: finalPath,
+      s3Key: albumCoverKey,
+      clientUrl: clientAlbumCoverUrl,
+      checkExists: true,
+    });
 
     // ------------- Parse Singers ------------------
     let artistsArray = [];
@@ -90,7 +111,10 @@ const saveSong = async (req, res) => {
     // ----------------- DB SAVE -------------------
     const songId = await saveSongToDB({
       ...rest,
+      title,
       albumName,
+      releasedYear,
+      language,
       songKey,
       songUrl,
       coverImageUrl,
@@ -103,6 +127,15 @@ const saveSong = async (req, res) => {
   } catch (error) {
     console.error("error save song from backend", error);
     res.status(500).json({ error: "Failed to save song" });
+  } finally {
+    const deleteFile = (path) => {
+      if (!path) return;
+      try {
+        fs.unlinkSync(path);
+      } catch (error) {}
+    };
+    deleteFile(finalPath);
+    deleteFile(req.file.path);
   }
 };
 

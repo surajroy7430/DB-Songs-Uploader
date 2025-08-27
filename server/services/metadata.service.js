@@ -2,9 +2,9 @@ const musicMetadata = require("music-metadata");
 const sharp = require("sharp");
 const { getFormatedDate, sanitizeName } = require("../utils/utils");
 
-const extractMetadata = async (fileBuffer, fileName) => {
+const extractMetadata = async (filePath, fileName) => {
   try {
-    const metadata = await musicMetadata.parseBuffer(fileBuffer);
+    const metadata = await musicMetadata.parseFile(filePath);
 
     const fileBaseName = fileName
       .toLowerCase()
@@ -14,7 +14,6 @@ const extractMetadata = async (fileBuffer, fileName) => {
       .replace(/\.[a-zA-Z0-9]+$/, "") // string extension
       .trim();
 
-      
     const title = metadata?.common?.title || fileBaseName;
     const album = metadata?.common?.album || "";
     const artists = metadata?.common?.artists || [];
@@ -23,7 +22,7 @@ const extractMetadata = async (fileBuffer, fileName) => {
     const language = metadata.common?.language || "";
     const duration = metadata.format?.duration || 0;
     const type = fileName.split(".").pop();
-      
+
     let coverImageKey = null;
     let albumCoverKey = null;
     const newTitle = sanitizeName(title);

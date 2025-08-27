@@ -42,6 +42,7 @@ const songSchema = z.object({
   clientCoverImageUrl: z.url().trim().optional().or(z.literal("")).nullable(),
   clientAlbumCoverUrl: z.url().trim().optional().or(z.literal("")).nullable(),
   copyright: z.string().trim().optional().or(z.literal("")),
+  tempPath: z.string().optional(),
   songFile: z.any().refine((f) => f instanceof File, "Song file is required"),
 });
 
@@ -144,6 +145,13 @@ export const SongProvider = ({ children }) => {
         setValue(key, val, { shouldValidate: false, shouldDirty: true });
       }
     });
+
+    if(res.data?.tempPath) {
+      setValue("tempPath", res.data.tempPath, {
+        shouldValidate: false,
+        shouldDirty: true,
+      });
+    }
 
     setValue("songFile", file, { shouldValidate: true, shouldDirty: true });
     return res.data;

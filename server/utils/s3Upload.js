@@ -25,7 +25,7 @@ const uploadToS3 = async ({ buffer, key, mimetype }) => {
       Key: key,
       Body: buffer,
       ContentType: mimetype,
-      ContentDisposition: `inline; filename="${key}"`,
+      // ContentDisposition: `inline; filename="${key}"`,
     })
   );
 

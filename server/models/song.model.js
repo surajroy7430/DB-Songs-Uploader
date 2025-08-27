@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 // Artists Schema
 const artistSchema = new mongoose.Schema(
   {
-    name: String,
+    name: { type: String, required: true },
     bio: String,
     artistCoverUrl: String,
     songs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Song" }],
@@ -15,7 +15,7 @@ const Artist = mongoose.model("Artist", artistSchema);
 // Album Schema
 const albumSchema = new mongoose.Schema(
   {
-    name: String,
+    name: { type: String, required: true },
     releaseYear: Number,
     albumCoverUrl: String,
     songs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Song" }],
@@ -27,18 +27,21 @@ const Album = mongoose.model("Album", albumSchema);
 // Song Schema
 const songSchema = new mongoose.Schema(
   {
-    title: String,
+    title: { type: String, required: true },
     artists: [{ type: mongoose.Schema.Types.ObjectId, ref: "Artist" }],
     album: { type: mongoose.Schema.Types.ObjectId, ref: "Album" },
-    language: String,
-    type: String,
-    duration: Number,
-    releasedYear: Number,
-    songUrl: String,
+    language: { type: String, required: true },
+    type: { type: String, default: "mp3" },
+    duration: { type: Number, required: true },
+    releasedYear: { type: Number, required: true },
+    songUrl: { type: String, required: true, unique: true },
     coverImageUrl: String,
   },
   { collection: "Songs", timestamps: true }
 );
+
+songSchema.index({ title: 1, releasedYear: 1, language: 1 }, { unique: true });
+
 const Song = mongoose.model("Song", songSchema);
 
 module.exports = { Song, Album, Artist };

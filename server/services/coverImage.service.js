@@ -1,81 +1,49 @@
 const musicMetadata = require("music-metadata");
 const { uploadToS3, checkIfExistsInS3 } = require("../utils/s3Upload");
 
-const handleCoverImage = async (
-  reqFile,
-  coverImageKey,
-  clientCoverImageUrl
-) => {
+const extractAndUploadCover = async ({
+  filePath,
+  s3Key,
+  clientUrl,
+  checkExists,
+}) => {
+  let coverUrl = null;
+  if (!filePath) return coverUrl;
+
   try {
-    let coverImageUrl = null;
-    if (!reqFile) return coverImageUrl;
+    const metadata = await musicMetadata.parseFile(filePath);
 
-    const metadata = await musicMetadata.parseBuffer(reqFile.buffer);
+    if (s3Key && filePath) {
+      if (metadata.common?.picture?.length) {
+        const img = metadata.common.picture[0];
 
-    if (coverImageKey && reqFile) {
-      try {
-        if (metadata.common?.picture?.length) {
-          const img = metadata.common.picture[0];
-          await uploadToS3({
-            buffer: img.data,
-            key: coverImageKey,
-            mimetype: img.format,
-          });
-          coverImageUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${coverImageKey}`;
-        }
-      } catch (error) {
-        console.error("Error uploading cover image:", error.message);
-        return coverImageUrl;
-      }
-    } else if (!coverImageKey && clientCoverImageUrl) {
-      coverImageUrl = clientCoverImageUrl;
-    }
-
-    return coverImageUrl;
-  } catch (error) {
-    console.error("Error handling cover image:", error.message);
-    return coverImageKey;
-  }
-};
-
-const handleAlbumCover = async (
-  reqFile,
-  albumCoverKey,
-  clientAlbumCoverUrl
-) => {
-  try {
-    let albumCoverUrl = null;
-    if (!reqFile) return albumCoverUrl;
-
-    const metadata = await musicMetadata.parseBuffer(reqFile.buffer);
-
-    if (albumCoverKey && reqFile) {
-      try {
-        if (metadata.common?.picture?.length) {
-          const img = metadata.common.picture[0];
-          const exists = await checkIfExistsInS3(albumCoverKey);
+        if (checkExists) {
+          const exists = await checkIfExistsInS3(s3Key);
           if (!exists) {
             await uploadToS3({
               buffer: img.data,
-              key: albumCoverKey,
+              key: s3Key,
               mimetype: img.format,
             });
           }
-          albumCoverUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${albumCoverKey}`;
+        } else {
+          await uploadToS3({
+            buffer: img.data,
+            key: s3Key,
+            mimetype: img.format,
+          });
         }
-      } catch (error) {
-        console.error("Error uploading album cover:", error.message);
-        return albumCoverUrl;
+        coverUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
       }
-    } else if (!albumCoverKey && clientAlbumCoverUrl) {
-      albumCoverUrl = clientAlbumCoverUrl;
+    } else if (!s3Key && clientUrl) {
+      coverUrl = clientUrl;
     }
 
-    return albumCoverUrl;
+    return coverUrl;
   } catch (error) {
-    console.error("Error handling album cover:", error.message);
-    return albumCoverKey;
+    console.error("Error uploading cover image:", error.message);
+    return s3Key || null;
   }
 };
 
-module.exports = { handleCoverImage, handleAlbumCover };
+module.exports = { extractAndUploadCover };

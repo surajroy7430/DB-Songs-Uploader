@@ -1,43 +1,57 @@
+const fs = require("fs");
+const path = require("path");
 const compressAudio = require("../utils/compressAudio");
 const { uploadToS3, checkIfExistsInS3 } = require("../utils/s3Upload");
 
-const handleAudioCompression = async (file) => {
+const handleAudioCompression = async (filePath, mimetype) => {
   try {
-    let buffer = file.buffer;
-    let size = buffer.length || 0;
+    let size = fs.statSync(filePath).size;
 
     console.log("file size before:", size);
 
-    if (file.mimetype.startsWith("audio/")) {
+    if (mimetype.startsWith("audio/")) {
       if (size >= 6 * 1024 * 1024) {
         try {
-          buffer = await compressAudio(buffer);
-          size = buffer.length;
+          const dir = path.dirname(filePath);
+          const ext = path.extname(filePath);
+          const base = path.basename(filePath, ext);
+          const outputPath = path.join(dir, `${base}-compressed${ext}`);
+          await compressAudio(filePath, outputPath);
+
+          size = fs.statSync(outputPath).size;
           console.log("compressed to:", size);
+
+          fs.unlinkSync(filePath);
+
+          return { path: outputPath, size };
         } catch (error) {
           console.log("compressed failed:", error.message);
+          return { path: filePath, size };
         }
       } else {
         console.log("skipped compression");
+        return { path: filePath, size };
       }
     }
 
-    return { buffer, size };
+    return { path: filePath, size };
   } catch (error) {
     console.error("Error in handleAudioCompression:", error.message);
-    return { buffer: file.buffer, size: file.buffer.length || 0 };
+    return { path: filePath, size: 0 };
   }
 };
 
-const uploadSongToS3 = async (file, key) => {
+const uploadSongToS3 = async (filePath, key, mimetype) => {
   try {
     const exists = await checkIfExistsInS3(key);
 
     if (!exists) {
+      const buffer = fs.readFileSync(filePath);
+
       const songUrl = await uploadToS3({
-        buffer: file.buffer,
-        key: key,
-        mimetype: file.mimetype,
+        buffer,
+        key,
+        mimetype,
       });
 
       return songUrl;

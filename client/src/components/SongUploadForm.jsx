@@ -241,7 +241,7 @@ export default function SongUploadForm() {
       }, 800);
     } catch (error) {
       console.error("Error while saving song:", error);
-      toast.error("Failed to saved song.");
+      toast.error(error.response?.data?.error || "Failed to saved song.");
       setProgress(0);
       setStatus("");
     }
