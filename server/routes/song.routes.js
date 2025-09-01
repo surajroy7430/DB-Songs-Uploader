@@ -3,6 +3,7 @@ const multerUpload = require("../middlewares/upload.middleware");
 const router = express.Router();
 const {
   uploadFilePreview,
+  deletePreviewFile,
   getAllSongs,
   saveSong,
   getSongById,
@@ -16,6 +17,7 @@ const {
 
 router.post("/preview", multerUpload.single("song"), uploadFilePreview);
 router.post("/save", multerUpload.single("song"), saveSong);
+router.post("/preview/reset", deletePreviewFile);
 
 // Songs
 router.get("/songs", getAllSongs);

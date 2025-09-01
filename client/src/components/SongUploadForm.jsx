@@ -42,6 +42,7 @@ import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import axios from "axios";
 
 const TextInputField = ({
   name,
@@ -111,6 +112,7 @@ export default function SongUploadForm() {
     lyricsData: { hasLyrics: false, lyrics: [], writers: "", poweredBy: "" },
     coverImageKey: "",
     copyright: "",
+    tempPath: "",
     songFile: null,
   };
 
@@ -212,13 +214,32 @@ export default function SongUploadForm() {
     form.setValue("genre", arr, { shouldValidate: true, shouldDirty: true });
   };
 
-  const resetForm = () => {
-    form.reset(defaultFormValues);
-    form.setValue("songFile", null);
-    setArtists([]);
-    setArtistInput("");
-    setShowLyrics(false);
-    setFileSize(null);
+  const resetForm = async () => {
+    try {
+      const tempPath = form.getValues("tempPath");
+
+      if (tempPath) {
+        try {
+          await axios.post(
+            `${import.meta.env.VITE_BASE_URL}/minxs-music/api/preview/reset`,
+            {
+              tempPath,
+            }
+          );
+        } catch (error) {
+          console.warn(error);
+          toast.warning("Failed to delete preview file");
+        }
+      }
+    } finally {
+      form.reset(defaultFormValues);
+      form.setValue("songFile", null);
+      form.setValue("tempPath", "");
+      setArtists([]);
+      setArtistInput("");
+      setShowLyrics(false);
+      setFileSize(null);
+    }
   };
 
   const onSubmit = async (values) => {
@@ -276,7 +297,9 @@ export default function SongUploadForm() {
                   <Label
                     className={cn(
                       "flex flex-col items-center justify-center border border-dashed bg-zinc-800/40 hover:bg-zinc-800 rounded cursor-pointer transition text-center min-h-[200px]",
-                      form.formState.errors.songFile ? "border-red-500" : "border-zinc-600"
+                      form.formState.errors.songFile
+                        ? "border-red-500"
+                        : "border-zinc-600"
                     )}
                   >
                     <FileMusic size={40} className="text-zinc-400" />

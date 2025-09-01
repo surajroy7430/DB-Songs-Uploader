@@ -70,6 +70,7 @@ export const SongProvider = ({ children }) => {
       clientCoverImageUrl: "",
       clientAlbumCoverUrl: "",
       copyright: "",
+      tempPath: "",
       songFile: null,
     },
   });
@@ -146,7 +147,7 @@ export const SongProvider = ({ children }) => {
       }
     });
 
-    if(res.data?.tempPath) {
+    if (res.data?.tempPath) {
       setValue("tempPath", res.data.tempPath, {
         shouldValidate: false,
         shouldDirty: true,

@@ -28,6 +28,22 @@ const uploadFilePreview = async (req, res) => {
   }
 };
 
+const deletePreviewFile = async (req, res) => {
+  const { tempPath } = req.body;
+  if (!tempPath) return res.status(400).json({ error: "tempPath is required" });
+
+  try {
+    fs.unlinkSync(tempPath);
+    return res.json({ ok: true });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return res.json({ ok: true, message: "Already deleted" });
+    }
+    console.error("Delete preview file error:", error);
+    return res.status(500).json({ error: "Failed to delete preview file" });
+  }
+};
+
 const saveSong = async (req, res) => {
   let finalPath;
 
@@ -349,6 +365,7 @@ const deleteSong = async (req, res) => {
 
 module.exports = {
   uploadFilePreview,
+  deletePreviewFile,
   saveSong,
   getAllSongs,
   getSongById,
