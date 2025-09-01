@@ -100,7 +100,7 @@ export const SongProvider = ({ children }) => {
     const data = new FormData();
     data.append("song", file);
 
-    const res = await axios.post(`${BASE_URL}/minxs-music/preview`, data);
+    const res = await axios.post(`${BASE_URL}/minxs-music/api/preview`, data);
 
     Object.entries(res.data || {}).forEach(([key, val]) => {
       if (["duration", "releasedYear"].includes(key)) {
@@ -188,7 +188,7 @@ export const SongProvider = ({ children }) => {
       }
     });
 
-    const res = await axios.post(`${BASE_URL}/minxs-music/save`, data, {
+    const res = await axios.post(`${BASE_URL}/minxs-music/api/save`, data, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return res.data;
