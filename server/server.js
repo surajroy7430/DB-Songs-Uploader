@@ -9,7 +9,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-app.use("/minxs-music", songRouter);
+app.use("/minxs-music/api", songRouter);
 
 let isDBConnected = false;
 const PORT = process.env.PORT || 4000;

@@ -6,6 +6,7 @@ const artistSchema = new mongoose.Schema(
     name: { type: String, required: true },
     bio: String,
     artistCoverUrl: String,
+    albums: [{ type: mongoose.Schema.Types.ObjectId, ref: "Album" }],
     songs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Song" }],
   },
   { collection: "Artists", timestamps: true }

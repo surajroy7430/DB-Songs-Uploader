@@ -217,6 +217,29 @@ const getSongsByArtist = async (req, res) => {
   }
 };
 
+const getAlbumsByArtist = async (req, res) => {
+  try {
+    const artist = await Artist.findById(req.params.artistId).populate({
+      path: "albums",
+      select: "name releaseYear albumCoverUrl",
+    });
+
+    if (!artist) return res.status(404).json({ error: "Artist Not Found" });
+
+    res.json({
+      artist: {
+        _id: artist._id,
+        name: artist.name,
+        bio: artist.bio,
+        artistCoverUrl: artist.artistCoverUrl,
+      },
+      albums: artist.albums,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 const getSongSummaryById = async (req, res) => {
   try {
     const summary = await SongSummary.findById(req.params.id).populate({
@@ -331,6 +354,7 @@ module.exports = {
   getSongById,
   getSongsByAlbum,
   getSongsByArtist,
+  getAlbumsByArtist,
   getSongSummaryById,
   getDownloadLink,
   deleteSong,

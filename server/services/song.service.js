@@ -30,6 +30,7 @@ const saveSongToDB = async ({
             bio: bio || "",
             artistCoverUrl: imageUrl || "",
             songs: [],
+            albums: []
           });
         } else {
           if (bio) artist.bio = bio;
@@ -71,7 +72,7 @@ const saveSongToDB = async ({
     await Promise.all([
       Artist.updateMany(
         { _id: { $in: artistIds } },
-        { $addToSet: { songs: song._id } }
+        { $addToSet: { songs: song._id, albums: albumId } }
       ),
       Album.findByIdAndUpdate(albumId, { $addToSet: { songs: song._id } }),
     ]);

@@ -8,6 +8,7 @@ const {
   getSongById,
   getSongsByAlbum,
   getSongsByArtist,
+  getAlbumsByArtist,
   getSongSummaryById,
   getDownloadLink,
   deleteSong,
@@ -16,15 +17,23 @@ const {
 router.post("/preview", multerUpload.single("song"), uploadFilePreview);
 router.post("/save", multerUpload.single("song"), saveSong);
 
+// Songs
 router.get("/songs", getAllSongs);
 router.get("/song/:id", getSongById);
-
-router.get("/album/:albumId", getSongsByAlbum);
-router.get("/artist/:artistId", getSongsByArtist);
+// Song Details
 router.get("/song_summary/:id", getSongSummaryById);
 
+// Albums
+router.get("/album/:albumId", getSongsByAlbum);
+
+// Artists
+router.get("/artist/:artistId/songs", getSongsByArtist);
+router.get("/artist/:artistId/albums", getAlbumsByArtist);
+
+// Download Link
 router.get("/download/:id", getDownloadLink);
 
+// Delete Song
 router.delete("/delete_song/:id", deleteSong);
 
 module.exports = router;
