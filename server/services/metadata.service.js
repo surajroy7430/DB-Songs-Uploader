@@ -7,7 +7,6 @@ const extractMetadata = async (filePath, fileName) => {
     const metadata = await musicMetadata.parseFile(filePath);
 
     const fileBaseName = fileName
-      .toLowerCase()
       .replace(/\s*\(.*?\)|\s*\[.*?\]|\s*\{.*?\}/g, "") // remove brackets
       .replace(/[\s_,]+/g, "-") // replace spaces/commas/underscores with "-"
       .replace(/-+/g, "-") // collapse multiple dashes
