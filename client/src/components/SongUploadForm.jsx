@@ -115,7 +115,8 @@ export default function SongUploadForm() {
     tempPath: "",
     songFile: null,
   };
-
+  
+  const isProcessing = status !== "";
   const genre = form.watch("genre") || [];
 
   const onFileChange = async (e) => {
@@ -287,16 +288,19 @@ export default function SongUploadForm() {
               <FormControl>
                 <div
                   onDrop={(e) => {
+                    if (isProcessing) return; // disable drag drop
                     e.preventDefault();
                     const file = e.dataTransfer.files?.[0];
                     if (file) onFileChange({ target: { files: [file] } });
                   }}
                   onDragOver={(e) => e.preventDefault()}
                   onDragEnter={(e) => e.preventDefault()}
+                  className={isProcessing ? "opacity-50 pointer-events-none" : ""}
                 >
                   <Label
                     className={cn(
                       "flex flex-col items-center justify-center border border-dashed bg-zinc-800/40 hover:bg-zinc-800 rounded cursor-pointer transition text-center min-h-[200px]",
+                      isProcessing && "cursor-not-allowed opacity-50",
                       form.formState.errors.songFile
                         ? "border-red-500"
                         : "border-zinc-600"
@@ -310,8 +314,10 @@ export default function SongUploadForm() {
                     <Input
                       type="file"
                       accept="audio/*"
+                      disabled={isProcessing}
                       className="hidden"
                       onChange={(e) => {
+                        disabled={isProcessing}
                         field.onChange(e.target.files?.[0]);
                         onFileChange(e);
                       }}
