@@ -20,8 +20,7 @@ const formatDuration = (seconds) => {
 
 const sanitizeName = (str) => {
   return str
-    .toLowerCase()
-    .replace(/\s*\(.*?\)|\s*\[.*?\]|\s*\{.*?\}/g, "") // remove brackets with data
+    .replace(/\s*\(.*?\)|\s*\[.*?\]|\s*\{.*?\}/g, "") // remove brackets texts
     .replace(/\./g, "") // remove dots
     .replace(/[\s_,]+/g, "-") // replace spaces/commas/underscores with "-"
     .replace(/-+/g, "-") // collapse multiple dashes
