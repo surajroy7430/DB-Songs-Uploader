@@ -13,6 +13,8 @@ const extractMetadata = async (filePath, fileName) => {
       .replace(/\.[a-zA-Z0-9]+$/, "") // string extension
       .trim();
 
+    const joinParts = (...parts) => parts.filter(Boolean).join("-");
+
     const title = metadata?.common?.title || fileBaseName;
     const album = metadata?.common?.album || "";
     const artists = metadata?.common?.artists || [];
@@ -33,8 +35,23 @@ const extractMetadata = async (filePath, fileName) => {
         const imageExt = img.format.split("/")[1] || "jpg";
         const { width, height } = await sharp(img.data).metadata();
 
-        coverImageKey = `covers/${newTitle}-${language}-${releasedYear}-${getFormatedDate()}-${width}x${height}.${imageExt}`;
-        albumCoverKey = `albums/${newAlbum}-${language}-${releasedYear}-${width}x${height}.${imageExt}`;
+        const coverName = joinParts(
+          newTitle,
+          language,
+          releasedYear,
+          getFormatedDate(),
+          `${width}x${height}`
+        );
+
+        const albumName = joinParts(
+          newAlbum,
+          language,
+          releasedYear,
+          `${width}x${height}`
+        );
+
+        coverImageKey = `covers/${coverName}.${imageExt}`;
+        albumCoverKey = `albums/${albumName}.${imageExt}`;
       } catch (error) {
         console.error("Error processing cover image:", error.message);
       }
