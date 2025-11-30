@@ -115,7 +115,7 @@ export default function SongUploadForm() {
     tempPath: "",
     songFile: null,
   };
-  
+
   const isProcessing = status !== "";
   const genre = form.watch("genre") || [];
 
@@ -295,7 +295,9 @@ export default function SongUploadForm() {
                   }}
                   onDragOver={(e) => e.preventDefault()}
                   onDragEnter={(e) => e.preventDefault()}
-                  className={isProcessing ? "opacity-50 pointer-events-none" : ""}
+                  className={
+                    isProcessing ? "opacity-50 pointer-events-none" : ""
+                  }
                 >
                   <Label
                     className={cn(
@@ -317,7 +319,8 @@ export default function SongUploadForm() {
                       disabled={isProcessing}
                       className="hidden"
                       onChange={(e) => {
-                        disabled={isProcessing}
+                        if (isProcessing) return;
+
                         field.onChange(e.target.files?.[0]);
                         onFileChange(e);
                       }}
