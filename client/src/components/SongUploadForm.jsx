@@ -551,6 +551,7 @@ export default function SongUploadForm() {
           <Label>
             <span>Has Lyrics?</span>
             <Switch checked={showLyrics} onCheckedChange={toggleLyrics} />
+            <span className="text-muted-foreground/70 pl-3">[__BREAK__]</span>
           </Label>
 
           {showLyrics && (
