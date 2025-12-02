@@ -1,4 +1,4 @@
-const { Song, Artist, Album } = require("../models/song.model");
+const { Song, Artist, Album, Genre } = require("../models/song.model");
 const { SongSummary } = require("../models/songSummary.model");
 const { formatDuration } = require("../utils/utils");
 
@@ -30,7 +30,7 @@ const saveSongToDB = async ({
             bio: bio || "",
             artistCoverUrl: imageUrl || "",
             songs: [],
-            albums: []
+            albums: [],
           });
         } else {
           if (bio) artist.bio = bio;
@@ -68,7 +68,7 @@ const saveSongToDB = async ({
       key: songKey,
     });
 
-    // Update Preference
+    // Update Artists + Album
     await Promise.all([
       Artist.updateMany(
         { _id: { $in: artistIds } },
@@ -76,6 +76,27 @@ const saveSongToDB = async ({
       ),
       Album.findByIdAndUpdate(albumId, { $addToSet: { songs: song._id } }),
     ]);
+
+    // Genre Handling
+    if (Array.isArray(genre)) {
+      await Promise.all(
+        genre.map(async (g) => {
+          let genreDoc = await Genre.findOne({ genre_name: g });
+
+          if (!genreDoc) {
+            await Genre.create({
+              genre_name: g,
+              songs: [song._id],
+            });
+          } else {
+            await Genre.updateOne(
+              { genre_name: g },
+              { $addToSet: { songs: song._id } }
+            );
+          }
+        })
+      );
+    }
 
     // Song Summary
     const artistNames = artistsArray.map((s) => s.name).join(", ");

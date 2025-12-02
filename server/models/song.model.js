@@ -25,6 +25,16 @@ const albumSchema = new mongoose.Schema(
 );
 const Album = mongoose.model("Album", albumSchema);
 
+// Genre Schema
+const genreSchema = new mongoose.Schema(
+  {
+    genre_name: { type: String, required: true, unique: true },
+    songs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Song" }],
+  },
+  { collection: "Genres", timestamps: true }
+);
+const Genre = mongoose.model("Genre", genreSchema);
+
 // Song Schema
 const songSchema = new mongoose.Schema(
   {
@@ -45,4 +55,4 @@ songSchema.index({ title: 1, releasedYear: 1, language: 1 }, { unique: true });
 
 const Song = mongoose.model("Song", songSchema);
 
-module.exports = { Song, Album, Artist };
+module.exports = { Song, Album, Artist, Genre };
