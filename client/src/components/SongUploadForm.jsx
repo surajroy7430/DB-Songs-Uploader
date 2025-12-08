@@ -252,7 +252,7 @@ export default function SongUploadForm() {
       }
 
       const res = await saveSong(values);
-      toast.success("Song saved! ID: " + res?.songId);
+      toast.success("Song saved!", { description:  "ID: " + res?.songId });
 
       resetForm();
 
