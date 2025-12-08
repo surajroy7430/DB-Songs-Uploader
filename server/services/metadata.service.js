@@ -79,7 +79,7 @@ const extractMetadata = async (filePath, fileName) => {
       genre: [],
       language: "",
       duration: 0,
-      type: fileName.split(".").pop(),
+      type: "",
       coverImageKey: null,
       albumCoverKey: null,
     };

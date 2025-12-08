@@ -1,6 +1,6 @@
 const { Song, Artist, Album, Genre } = require("../models/song.model");
+const { formatDuration, formatArtists } = require("../utils/utils");
 const { SongSummary } = require("../models/songSummary.model");
-const { formatDuration } = require("../utils/utils");
 
 const saveSongToDB = async ({
   title,
@@ -99,12 +99,12 @@ const saveSongToDB = async ({
     }
 
     // Song Summary
-    const artistNames = artistsArray.map((s) => s.name).join(", ");
+    const artistNames = formatArtists(artistsArray, 4);
     const descriptionData = {
       about: `About ${title}`,
-      description: `Listen to ${title} online. ${title} is a ${language} language song and is sung by ${artistNames}. ${title}, from the album ${albumName}, was released in the year ${releasedYear}. The duration of the song is ${formatDuration(
+      description: `${title} is a ${language} language song performed by ${artistNames}. The track is from the album ${albumName}, which was released in ${releasedYear}. The duration of the song is ${formatDuration(
         duration
-      )}.`,
+      )}. Listen to ${title} online. `,
     };
 
     const playCount = Math.floor(Math.random() * (24626 - 5335 + 1)) + 5335;

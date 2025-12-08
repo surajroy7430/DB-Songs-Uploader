@@ -42,7 +42,7 @@ const songSchema = new mongoose.Schema(
     artists: [{ type: mongoose.Schema.Types.ObjectId, ref: "Artist" }],
     album: { type: mongoose.Schema.Types.ObjectId, ref: "Album" },
     language: { type: String, required: true },
-    type: { type: String, default: "mp3" },
+    type: { type: String, default: "song" },
     duration: { type: Number, required: true },
     releasedYear: { type: Number, required: true },
     songUrl: { type: String, required: true, unique: true },

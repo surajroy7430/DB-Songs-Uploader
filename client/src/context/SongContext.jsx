@@ -26,7 +26,7 @@ const songSchema = z.object({
     (v) => Number(v),
     z.number().min(1900).max(currentYear)
   ),
-  type: z.string().trim().optional().or(z.literal("")),
+  type: z.string().trim().min(1),
   genre: z.array(z.string().trim()).min(1),
   lyricsData: z
     .object({
@@ -57,7 +57,7 @@ export const SongProvider = ({ children }) => {
       language: "",
       duration: 1,
       releasedYear: currentYear,
-      type: "",
+      type: "song",
       genre: [],
       lyricsData: {
         hasLyrics: false,

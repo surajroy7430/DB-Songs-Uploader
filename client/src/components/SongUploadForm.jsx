@@ -6,9 +6,9 @@ import {
   CassetteTape,
   Copyright,
   Disc3,
-  DiscAlbum,
   FileKey2,
   FileMusic,
+  FileType,
   Guitar,
   Hourglass,
   Languages,
@@ -24,7 +24,6 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from "@/components/ui/form";
 import {
   Table,
@@ -107,7 +106,7 @@ export default function SongUploadForm() {
     language: "",
     duration: 1,
     releasedYear: new Date().getFullYear(),
-    type: "",
+    type: "song",
     genre: [],
     lyricsData: { hasLyrics: false, lyrics: [], writers: "", poweredBy: "" },
     coverImageKey: "",
@@ -481,6 +480,15 @@ export default function SongUploadForm() {
           label="Total Duration"
           placeholder="duration (seconds)"
           icon={Hourglass}
+        />
+
+        {/* Type */}
+        <TextInputField
+          name="type"
+          control={form.control}
+          label="Type"
+          placeholder="song, single"
+          icon={FileType}
         />
 
         <FormField
