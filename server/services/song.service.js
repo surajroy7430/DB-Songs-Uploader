@@ -104,7 +104,7 @@ const saveSongToDB = async ({
       about: `About ${title}`,
       description: `${title} is a ${language} language song performed by ${artistNames}. The track is from the album ${albumName}, which was released in ${releasedYear}. The duration of the song is ${formatDuration(
         duration
-      )}. Listen to ${title} online. `,
+      )}. Listen to ${title} online on MinXs Music.`,
     };
 
     const playCount = Math.floor(Math.random() * (24626 - 5335 + 1)) + 5335;
