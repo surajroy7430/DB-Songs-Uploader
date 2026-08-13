@@ -10,7 +10,7 @@ const songSummarySchema = new mongoose.Schema(
     fileSize: Number,
     playCount: Number,
     genre: [String],
-    copyright: String,
+    label: { type: mongoose.Schema.Types.ObjectId, ref: "Label" },
     lyricsData: {
       hasLyrics: { type: Boolean, default: false },
       lyrics: [String],
@@ -23,7 +23,7 @@ const songSummarySchema = new mongoose.Schema(
     },
     key: String,
   },
-  { collection: "SongSummaries", timestamps: true }
+  { collection: "SongSummaries", timestamps: true },
 );
 
 songSummarySchema.pre("save", function (next) {
