@@ -41,7 +41,7 @@ const Genre = mongoose.model("Genre", genreSchema);
 // Label Schema
 const labelSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true },
+    name: { type: String, required: true, unique: true },
     logoUrl: String,
     description: String,
     albums: [{ type: mongoose.Schema.Types.ObjectId, ref: "Album" }],
