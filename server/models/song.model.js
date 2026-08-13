@@ -43,7 +43,7 @@ const labelSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, unique: true },
     logoUrl: String,
-    description: String,
+    copyright: String,
     albums: [{ type: mongoose.Schema.Types.ObjectId, ref: "Album" }],
     songs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Song" }],
   },
