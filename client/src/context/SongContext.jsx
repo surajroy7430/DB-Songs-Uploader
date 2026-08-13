@@ -25,10 +25,10 @@ const songSchema = z.object({
     .object({
       name: z.string().trim().optional().or(z.literal("")),
       logoUrl: z.url().trim().optional().or(z.literal("")).nullable(),
-      description: z.string().trim().optional().or(z.literal("")),
+      copyright: z.string().trim().optional().or(z.literal("")),
     })
     .optional()
-    .default({ name: "", logoUrl: "", description: "" }),
+    .default({ name: "", logoUrl: "", copyright: "" }),
   language: z.string().trim().min(1),
   duration: z.preprocess((v) => Number(v), z.number().min(1)),
   releasedYear: z.preprocess(
@@ -62,7 +62,7 @@ export const SongProvider = ({ children }) => {
       title: "",
       album: "",
       artists: [],
-      label: { name: "", logoUrl: "", description: "" },
+      label: { name: "", logoUrl: "", copyright: "" },
       language: "",
       duration: 1,
       releasedYear: currentYear,
@@ -145,11 +145,11 @@ export const SongProvider = ({ children }) => {
       if (key === "label") {
         const labelObj =
           typeof val === "string"
-            ? { name: val, logoUrl: "", description: "" }
+            ? { name: val, logoUrl: "", copyright: "" }
             : {
                 name: val?.name || "",
                 logoUrl: val?.logoUrl || "",
-                description: val?.description || "",
+                copyright: val?.copyright || "",
               };
         setValue("label", labelObj, {
           shouldValidate: false,
