@@ -1,4 +1,4 @@
-const { Song, Artist, Album, Genre } = require("../models/song.model");
+const { Song, Artist, Album, Genre, Label } = require("../models/song.model");
 const { formatDuration, formatArtists } = require("../utils/utils");
 const { SongSummary } = require("../models/songSummary.model");
 
@@ -12,7 +12,7 @@ const saveSongToDB = async ({
   releasedYear,
   genre,
   type,
-  copyright,
+  labelData,
   lyricsData,
   songUrl,
   coverImageUrl,
@@ -22,25 +22,57 @@ const saveSongToDB = async ({
   try {
     // Handle Artists
     const artistIds = await Promise.all(
-      artistsArray.map(async ({ name, bio, imageUrl }) => {
+      artistsArray.map(async ({ name, role, bio, imageUrl }) => {
         let artist = await Artist.findOne({ name });
         if (!artist) {
           artist = await Artist.create({
             name,
+            role: role || "",
             bio: bio || "",
             artistCoverUrl: imageUrl || "",
             songs: [],
             albums: [],
           });
         } else {
+          if (role) artist.role = role;
           if (bio) artist.bio = bio;
           if (imageUrl) artist.artistCoverUrl = imageUrl;
 
           await artist.save();
         }
         return artist._id;
-      })
+      }),
     );
+
+    // Handle Label
+    let labelId = null;
+    if (labelData?.name) {
+      let label = await Label.findOne({ name: labelData.name });
+      if (!label) {
+        label = await Label.create({
+          name: labelData.name,
+          logoUrl: labelData.logoUrl || "",
+          description: labelData.description || "",
+          songs: [],
+          albums: [],
+        });
+      } else {
+        let changed = false;
+        if (labelData.logoUrl && labelData.logoUrl !== label.logoUrl) {
+          label.logoUrl = labelData.logoUrl;
+          changed = true;
+        }
+        if (
+          labelData.description &&
+          labelData.description !== label.description
+        ) {
+          label.description = labelData.description;
+          changed = true;
+        }
+        if (changed) await label.save();
+      }
+      labelId = label._id;
+    }
 
     // Handle Album
     let album = await Album.findOne({ name: albumName });
@@ -48,9 +80,16 @@ const saveSongToDB = async ({
       album = await Album.create({
         name: albumName,
         songs: [],
+        artists: artistIds,
         releaseYear: releasedYear,
         albumCoverUrl,
+        label: labelId,
       });
+    } else {
+      await Album.updateOne(
+        { _id: album._id },
+        { $addToSet: { artists: { $each: artistIds } } },
+      );
     }
     const albumId = album._id;
 
@@ -68,43 +107,63 @@ const saveSongToDB = async ({
       key: songKey,
     });
 
-    // Update Artists + Album
+    // Update Artists + Album + Label
     await Promise.all([
       Artist.updateMany(
         { _id: { $in: artistIds } },
-        { $addToSet: { songs: song._id, albums: albumId } }
+        { $addToSet: { songs: song._id, albums: albumId } },
       ),
       Album.findByIdAndUpdate(albumId, { $addToSet: { songs: song._id } }),
+      labelId
+        ? Label.findByIdAndUpdate(labelId, {
+            $addToSet: { songs: song._id, albums: albumId },
+          })
+        : Promise.resolve(),
     ]);
 
     // Genre Handling
-    if (Array.isArray(genre)) {
-      await Promise.all(
-        genre.map(async (g) => {
-          let genreDoc = await Genre.findOne({ genre_name: g });
+    const genreList = Array.isArray(genre)
+      ? genre
+      : typeof genre === "string"
+        ? (() => {
+            try {
+              const parsed = JSON.parse(genre);
+              return Array.isArray(parsed) ? parsed : [parsed];
+            } catch {
+              return [genre];
+            }
+          })()
+        : [];
 
-          if (!genreDoc) {
-            await Genre.create({
-              genre_name: g,
-              songs: [song._id],
-            });
-          } else {
-            await Genre.updateOne(
-              { genre_name: g },
-              { $addToSet: { songs: song._id } }
-            );
-          }
-        })
-      );
-    }
+    const normalizedGenres = genreList
+      .map((g) => String(g).trim())
+      .filter(Boolean);
+
+    await Promise.all(
+      normalizedGenres.map(async (genreName) => {
+        await Genre.findOneAndUpdate(
+          { genre_name: genreName },
+          {
+            $addToSet: {
+              songs: song._id,
+            },
+          },
+          {
+            upsert: true,
+            new: true,
+            setDefaultsOnInsert: true,
+          },
+        );
+      }),
+    );
 
     // Song Summary
     const artistNames = formatArtists(artistsArray, 4);
     const descriptionData = {
       about: `About ${title}`,
       description: `${title} is a ${language} language song performed by ${artistNames}. The track is from the album ${albumName}, which was released in ${releasedYear}. The duration of the song is ${formatDuration(
-        duration
-      )}. Listen to ${title} online on MinXs Music.`,
+        duration,
+      )}. Listen to ${title} online. `,
     };
 
     const playCount = Math.floor(Math.random() * (24626 - 5335 + 1)) + 5335;
@@ -115,7 +174,7 @@ const saveSongToDB = async ({
       fileSize,
       playCount,
       genre,
-      copyright,
+      label: labelId,
       lyricsData,
       descriptionData,
     });
