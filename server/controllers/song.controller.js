@@ -153,7 +153,7 @@ const saveSong = async (req, res) => {
         labelData = {
           name: parsedLabel?.name || labelName || "",
           logoUrl: parsedLabel?.logoUrl || "",
-          description: parsedLabel?.description || "",
+          copyright: parsedLabel?.copyright || "",
         };
       } catch {
         labelData = { name: labelName || "" };
