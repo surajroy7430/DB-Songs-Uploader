@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { Song, Album, Artist } = require("../models/song.model");
+const { Song, Album, Artist, Label } = require("../models/song.model");
 const { SongSummary } = require("../models/songSummary.model");
 const { extractMetadata } = require("../services/metadata.service");
 const {
@@ -17,7 +17,7 @@ const uploadFilePreview = async (req, res) => {
 
     const { path, size } = await handleAudioCompression(
       req.file.path,
-      req.file.mimetype
+      req.file.mimetype,
     );
     const metadata = await extractMetadata(path, req.file.originalname);
 
@@ -52,8 +52,11 @@ const saveSong = async (req, res) => {
       tempPath,
       title,
       album: albumName,
+      label: labelName,
+      labelInfo,
       releasedYear,
       language,
+      genre,
       lyricsData,
       coverImageKey,
       albumCoverKey,
@@ -84,7 +87,7 @@ const saveSong = async (req, res) => {
     const songUrl = await uploadSongToS3(
       finalPath,
       songKey,
-      req.file?.mimetype
+      req.file?.mimetype,
     );
 
     // --------------- Cover Images -------------------
@@ -113,6 +116,23 @@ const saveSong = async (req, res) => {
       artistsArray = singersInfo;
     }
 
+    // --------------- Parse Genre ----------------
+    let parsedGenre = {};
+    if (genre) {
+      try {
+        parsedGenre =
+          typeof Genre === "string" ? JSON.parse(genre) : genre;
+      } catch (error) {
+        parsedGenre = {};
+      }
+    }
+
+    if(!Array.isArray(parsedGenre)) {
+      parsedGenre = [parsedGenre]
+    }
+
+    parsedGenre = parsedGenre.map(g => String(g).trim()).filter(Boolean);
+
     // --------------- Parse Lyrics ----------------
     let parsedLyricsData = {};
     if (lyricsData) {
@@ -124,11 +144,28 @@ const saveSong = async (req, res) => {
       }
     }
 
+    // ------------- Parse Label ------------------
+    let labelData = { name: labelName || "" };
+    if (labelInfo) {
+      try {
+        const parsedLabel =
+          typeof labelInfo === "string" ? JSON.parse(labelInfo) : labelInfo;
+        labelData = {
+          name: parsedLabel?.name || labelName || "",
+          logoUrl: parsedLabel?.logoUrl || "",
+          description: parsedLabel?.description || "",
+        };
+      } catch {
+        labelData = { name: labelName || "" };
+      }
+    }
+
     // ----------------- DB SAVE -------------------
     const songId = await saveSongToDB({
       ...rest,
       title,
       albumName,
+      labelData,
       releasedYear,
       language,
       songKey,
@@ -136,6 +173,7 @@ const saveSong = async (req, res) => {
       coverImageUrl,
       albumCoverUrl,
       artistsArray,
+      genre: parsedGenre,
       lyricsData: parsedLyricsData,
     });
 
@@ -159,7 +197,7 @@ const getAllSongs = async (req, res) => {
   try {
     const songs = await Song.find()
       .populate("album", "name")
-      .populate("artists", "name");
+      .populate("artists", "name role")
 
     res.json({ count: songs.length, songs });
   } catch (error) {
@@ -171,7 +209,7 @@ const getSongById = async (req, res) => {
   try {
     const song = await Song.findById(req.params.id)
       .populate("album", "name")
-      .populate("artists", "name");
+      .populate("artists", "name role")
 
     if (!song) return res.status(404).json({ error: "Song Not Found" });
 
@@ -258,13 +296,15 @@ const getAlbumsByArtist = async (req, res) => {
 
 const getSongSummaryById = async (req, res) => {
   try {
-    const summary = await SongSummary.findById(req.params.id).populate({
-      path: "song",
-      populate: [
-        { path: "album", select: "name" },
-        { path: "artists", select: "name artistCoverUrl" },
-      ],
-    });
+    const summary = await SongSummary.findById(req.params.id)
+      .populate({
+        path: "song",
+        populate: [
+          { path: "album", select: "name" },
+          { path: "artists", select: "name role artistCoverUrl" },
+        ],
+      })
+      .populate("label", "name logoUrl description");
 
     if (!summary)
       return res.status(404).json({ error: "Song Summary Not Found" });
@@ -349,6 +389,13 @@ const deleteSong = async (req, res) => {
           });
         }
       }
+    }
+
+    const summary = await SongSummary.findOne({ song: song._id });
+    if (summary?.label) {
+      await Label.findByIdAndUpdate(summary.label, {
+        $pull: { songs: song._id },
+      });
     }
 
     // Delete the song summary
