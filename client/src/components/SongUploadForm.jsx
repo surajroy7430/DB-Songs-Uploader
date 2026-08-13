@@ -107,7 +107,7 @@ export default function SongUploadForm() {
     releasedYear: new Date().getFullYear(),
     type: "song",
     genre: [],
-    label: { name: "", logoUrl: "", description: "" },
+    label: { name: "", logoUrl: "", copyright: "" },
     lyricsData: { hasLyrics: false, lyrics: [], writers: "", poweredBy: "" },
     coverImageKey: "",
     tempPath: "",
@@ -481,7 +481,7 @@ export default function SongUploadForm() {
                     Logo Url
                   </TableHead>
                   <TableHead className="w-[250px] border text-center">
-                    Description
+                    Copyright
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -516,10 +516,10 @@ export default function SongUploadForm() {
                   <TableCell className="p-2 border">
                     <Input
                       className="w-full"
-                      value={form.watch("label.description") || ""}
-                      placeholder="Description"
+                      value={form.watch("label.copyright") || ""}
+                      placeholder="Copyright"
                       onChange={(e) =>
-                        form.setValue("label.description", e.target.value, {
+                        form.setValue("label.copyright", e.target.value, {
                           shouldValidate: true,
                           shouldDirty: true,
                         })
