@@ -20,6 +20,9 @@ const extractMetadata = async (filePath, fileName) => {
     const artists = metadata?.common?.artists || [];
     const releasedYear = metadata.common?.year || null;
     const genre = metadata.common?.genre || [];
+    const label = Array.isArray(metadata.common?.label)
+      ? metadata.common.label[0] || ""
+      : metadata.common?.label || "";
     const language = metadata.common?.language || "";
     const duration = metadata.format?.duration || 0;
     const type = fileName.split(".").pop();
@@ -40,14 +43,14 @@ const extractMetadata = async (filePath, fileName) => {
           language,
           releasedYear,
           getFormatedDate(),
-          `${width}x${height}`
+          `${width}x${height}`,
         );
 
         const albumName = joinParts(
           newAlbum,
           language,
           releasedYear,
-          `${width}x${height}`
+          `${width}x${height}`,
         );
 
         coverImageKey = `covers/${coverName}.${imageExt}`;
@@ -62,6 +65,7 @@ const extractMetadata = async (filePath, fileName) => {
         artists,
         releasedYear,
         genre,
+        label,
         language,
         duration,
         type,
@@ -77,6 +81,7 @@ const extractMetadata = async (filePath, fileName) => {
       artists: [],
       releasedYear: null,
       genre: [],
+      label: "",
       language: "",
       duration: 0,
       type: "",
