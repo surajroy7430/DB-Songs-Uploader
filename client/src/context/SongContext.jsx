@@ -16,15 +16,24 @@ const songSchema = z.object({
   artists: z.array(
     z.object({
       name: z.string().trim().min(1),
+      role: z.string().trim().optional().default("artist"),
       bio: z.string().trim().optional(),
       imageUrl: z.url().trim().optional().or(z.literal("")).nullable(),
-    })
+    }),
   ),
+  label: z
+    .object({
+      name: z.string().trim().optional().or(z.literal("")),
+      logoUrl: z.url().trim().optional().or(z.literal("")).nullable(),
+      description: z.string().trim().optional().or(z.literal("")),
+    })
+    .optional()
+    .default({ name: "", logoUrl: "", description: "" }),
   language: z.string().trim().min(1),
   duration: z.preprocess((v) => Number(v), z.number().min(1)),
   releasedYear: z.preprocess(
     (v) => Number(v),
-    z.number().min(1900).max(currentYear)
+    z.number().min(1900).max(currentYear),
   ),
   type: z.string().trim().min(1),
   genre: z.array(z.string().trim()).min(1),
@@ -41,7 +50,6 @@ const songSchema = z.object({
   albumCoverKey: z.string().trim().optional().or(z.literal("")),
   clientCoverImageUrl: z.url().trim().optional().or(z.literal("")).nullable(),
   clientAlbumCoverUrl: z.url().trim().optional().or(z.literal("")).nullable(),
-  copyright: z.string().trim().optional().or(z.literal("")),
   tempPath: z.string().optional(),
   songFile: z.any().refine((f) => f instanceof File, "Song file is required"),
 });
@@ -54,6 +62,7 @@ export const SongProvider = ({ children }) => {
       title: "",
       album: "",
       artists: [],
+      label: { name: "", logoUrl: "", description: "" },
       language: "",
       duration: 1,
       releasedYear: currentYear,
@@ -69,7 +78,6 @@ export const SongProvider = ({ children }) => {
       albumCoverKey: "",
       clientCoverImageUrl: "",
       clientAlbumCoverUrl: "",
-      copyright: "",
       tempPath: "",
       songFile: null,
     },
@@ -120,17 +128,33 @@ export const SongProvider = ({ children }) => {
                     .split(/,\s*/g)
                     .map((s) => s.trim())
                     .filter(Boolean)
-                : []
+                : [],
             )
-            .map((name) => ({ name, bio: "", imageUrl: "" }));
+            .map((name) => ({ name, role: "artist", bio: "", imageUrl: "" }));
         } else if (typeof val === "string") {
           arr = val
             .split(/,\s*/g)
             .map((s) => s.trim())
             .filter(Boolean)
-            .map((name) => ({ name, bio: "", imageUrl: "" }));
+            .map((name) => ({ name, role: "artist", bio: "", imageUrl: "" }));
         }
         setValue("artists", arr, { shouldValidate: false, shouldDirty: true });
+        return;
+      }
+
+      if (key === "label") {
+        const labelObj =
+          typeof val === "string"
+            ? { name: val, logoUrl: "", description: "" }
+            : {
+                name: val?.name || "",
+                logoUrl: val?.logoUrl || "",
+                description: val?.description || "",
+              };
+        setValue("label", labelObj, {
+          shouldValidate: false,
+          shouldDirty: true,
+        });
         return;
       }
 
@@ -173,8 +197,13 @@ export const SongProvider = ({ children }) => {
 
     (values.genre || []).forEach((val) => data.append("genre", val));
 
+    if (values.label?.name) {
+      data.append("label", values.label.name);
+      data.append("labelInfo", JSON.stringify(values.label));
+    }
+
     Object.entries(values).forEach(([key, val]) => {
-      if (["songFile", "artists", "genre", "singersInfo"].includes(key)) return;
+      if (["songFile", "artists", "genre", "singersInfo", "label"].includes(key)) return;
 
       if (key === "duration") {
         const float = parseFloat(val);
