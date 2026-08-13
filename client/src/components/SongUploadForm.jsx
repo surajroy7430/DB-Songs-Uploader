@@ -4,7 +4,6 @@ import { useSongForm } from "../context/SongContext";
 import {
   Calendar,
   CassetteTape,
-  Copyright,
   Disc3,
   FileKey2,
   FileMusic,
@@ -108,9 +107,9 @@ export default function SongUploadForm() {
     releasedYear: new Date().getFullYear(),
     type: "song",
     genre: [],
+    label: { name: "", logoUrl: "", description: "" },
     lyricsData: { hasLyrics: false, lyrics: [], writers: "", poweredBy: "" },
     coverImageKey: "",
-    copyright: "",
     tempPath: "",
     songFile: null,
   };
@@ -173,7 +172,7 @@ export default function SongUploadForm() {
 
     const newArtists = [
       ...artists,
-      ...names.map((name) => ({ name, bio: "", imageUrl: "" })),
+      ...names.map((name) => ({ name, role: "artist", bio: "", imageUrl: "" })),
     ];
 
     setArtists(newArtists);
@@ -224,7 +223,7 @@ export default function SongUploadForm() {
             `${import.meta.env.VITE_BASE_URL}/minxs-music/api/preview/reset`,
             {
               tempPath,
-            }
+            },
           );
         } catch (error) {
           console.warn(error);
@@ -252,7 +251,7 @@ export default function SongUploadForm() {
       }
 
       const res = await saveSong(values);
-      toast.success("Song saved!", { description:  "ID: " + res?.songId });
+      toast.success("Song saved! ID: " + res?.songId);
 
       resetForm();
 
@@ -304,7 +303,7 @@ export default function SongUploadForm() {
                       isProcessing && "cursor-not-allowed opacity-50",
                       form.formState.errors.songFile
                         ? "border-red-500"
-                        : "border-zinc-600"
+                        : "border-zinc-600",
                     )}
                   >
                     <FileMusic size={40} className="text-zinc-400" />
@@ -394,6 +393,9 @@ export default function SongUploadForm() {
                       Artist Name
                     </TableHead>
                     <TableHead className="w-[200px] border text-center">
+                      Role
+                    </TableHead>
+                    <TableHead className="w-[200px] border text-center">
                       Bio
                     </TableHead>
                     <TableHead className="w-[250px] border text-center">
@@ -414,6 +416,16 @@ export default function SongUploadForm() {
                           placeholder="Name"
                           onChange={(e) =>
                             updateSinger(idx, "name", e.target.value)
+                          }
+                        />
+                      </TableCell>
+                      <TableCell className="p-2 border">
+                        <Input
+                          className="w-full"
+                          value={singer.role}
+                          placeholder="Role"
+                          onChange={(e) =>
+                            updateSinger(idx, "role", e.target.value)
                           }
                         />
                       </TableCell>
@@ -453,6 +465,71 @@ export default function SongUploadForm() {
               </Table>
             </div>
           )}
+        </div>
+
+        {/* Label */}
+        <div className="flex flex-col gap-2">
+          <FormLabel>Label</FormLabel>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[200px] border text-center">
+                    Label Name
+                  </TableHead>
+                  <TableHead className="w-[250px] border text-center">
+                    Logo Url
+                  </TableHead>
+                  <TableHead className="w-[250px] border text-center">
+                    Description
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="p-2 border">
+                    <Input
+                      className="w-full"
+                      value={form.watch("label.name") || ""}
+                      placeholder="Label Name"
+                      onChange={(e) =>
+                        form.setValue("label.name", e.target.value, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        })
+                      }
+                    />
+                  </TableCell>
+                  <TableCell className="p-2 border">
+                    <Input
+                      className="w-full"
+                      value={form.watch("label.logoUrl") || ""}
+                      placeholder="Logo Url"
+                      onChange={(e) =>
+                        form.setValue("label.logoUrl", e.target.value, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        })
+                      }
+                    />
+                  </TableCell>
+                  <TableCell className="p-2 border">
+                    <Input
+                      className="w-full"
+                      value={form.watch("label.description") || ""}
+                      placeholder="Description"
+                      onChange={(e) =>
+                        form.setValue("label.description", e.target.value, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        })
+                      }
+                    />
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
         </div>
 
         {/* Language */}
@@ -544,15 +621,6 @@ export default function SongUploadForm() {
           label="Album Image URL (Optional)"
           placeholder="copy and paste url"
           icon={Link}
-        />
-
-        {/* Copyright */}
-        <TextInputField
-          name="copyright"
-          control={form.control}
-          label="Copyright"
-          placeholder="copyright"
-          icon={Copyright}
         />
 
         <div className="flex flex-col gap-2">
