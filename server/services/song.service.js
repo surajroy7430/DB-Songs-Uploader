@@ -52,7 +52,7 @@ const saveSongToDB = async ({
         label = await Label.create({
           name: labelData.name,
           logoUrl: labelData.logoUrl || "",
-          description: labelData.description || "",
+          copyright: labelData.copyright || "",
           songs: [],
           albums: [],
         });
@@ -63,10 +63,10 @@ const saveSongToDB = async ({
           changed = true;
         }
         if (
-          labelData.description &&
-          labelData.description !== label.description
+          labelData.copyright &&
+          labelData.copyright !== label.copyright
         ) {
-          label.description = labelData.description;
+          label.copyright = labelData.copyright;
           changed = true;
         }
         if (changed) await label.save();
