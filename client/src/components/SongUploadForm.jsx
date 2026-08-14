@@ -1,3 +1,4 @@
+import axios from "axios";
 import { cn } from "../lib/utils";
 import { useId, useState } from "react";
 import { useSongForm } from "../context/SongContext";
@@ -10,12 +11,16 @@ import {
   FileType,
   Guitar,
   Hourglass,
+  ImageIcon,
   Languages,
   Link,
   MicVocal,
   Music2,
+  Sparkles,
+  Trash2,
   UserPen,
   UserPlus,
+  Users,
 } from "lucide-react";
 import {
   Form,
@@ -32,6 +37,13 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,7 +52,23 @@ import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import axios from "axios";
+
+const SectionHead = ({ icon: Icon, title, hint, children }) => (
+  <section className="panel rounded-2xl p-5 sm:p-6">
+    <header className="mb-5 flex items-start gap-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
+        {Icon && <Icon className="h-4 w-4" />}
+      </span>
+      <div className="min-w-0">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-foreground">
+          {title}
+        </h2>
+        {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
+      </div>
+    </header>
+    {children}
+  </section>
+);
 
 const TextInputField = ({
   name,
@@ -59,12 +87,19 @@ const TextInputField = ({
       control={control}
       render={({ field }) => (
         <FormItem className="mt-3">
-          {label && <FormLabel htmlFor={id}>{label}</FormLabel>}
+          {label && (
+            <FormLabel
+              htmlFor={id}
+              className="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground"
+            >
+              {label}
+            </FormLabel>
+          )}
 
           <FormControl>
             <div className="relative">
               {Icon && (
-                <Icon className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Icon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               )}
               <Input
                 id={id}
@@ -72,7 +107,11 @@ const TextInputField = ({
                 placeholder={placeholder}
                 {...field}
                 {...props}
-                className={cn(Icon ? "pl-8" : "", props.className)}
+                className={cn(
+                  "h-11 rounded-xl border-border/70 bg-secondary/40 transition-colors focus-visible:bg-secondary/70",
+                  Icon ? "pl-9" : "",
+                  props.className,
+                )}
               />
             </div>
           </FormControl>
@@ -93,6 +132,7 @@ export default function SongUploadForm() {
     handleLyricsChange,
   } = useSongForm();
   const [artistInput, setArtistInput] = useState("");
+  const [artistRole, setArtistRole] = useState("artist");
   const [artists, setArtists] = useState([]);
   const [fileSize, setFileSize] = useState(null);
   const [progress, setProgress] = useState(0);
@@ -172,7 +212,12 @@ export default function SongUploadForm() {
 
     const newArtists = [
       ...artists,
-      ...names.map((name) => ({ name, role: "artist", bio: "", imageUrl: "" })),
+      ...names.map((name) => ({
+        name,
+        role: artistRole,
+        bio: "",
+        imageUrl: "",
+      })),
     ];
 
     setArtists(newArtists);
@@ -276,13 +321,14 @@ export default function SongUploadForm() {
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit, onError)}
-        className="flex flex-col gap-4 p-6 bg-card rounded-lg"
+        className="flex flex-col gap-5"
       >
+        {/* ---------------- Upload ---------------- */}
         <FormField
           name="songFile"
           control={form.control}
           render={({ field }) => (
-            <FormItem>
+            <FormItem className="panel rounded-2xl p-5 sm:p-6">
               <FormControl>
                 <div
                   onDrop={(e) => {
@@ -294,22 +340,28 @@ export default function SongUploadForm() {
                   onDragOver={(e) => e.preventDefault()}
                   onDragEnter={(e) => e.preventDefault()}
                   className={
-                    isProcessing ? "opacity-50 pointer-events-none" : ""
+                    isProcessing ? "pointer-events-none opacity-50" : ""
                   }
                 >
                   <Label
                     className={cn(
-                      "flex flex-col items-center justify-center border border-dashed bg-zinc-800/40 hover:bg-zinc-800 rounded cursor-pointer transition text-center min-h-[200px]",
+                      "group relative flex min-h-[220px] w-full cursor-pointer flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border border-dashed bg-secondary/30 text-center transition-all duration-300 hover:bg-secondary/60 hover:glow-ring",
                       isProcessing && "cursor-not-allowed opacity-50",
                       form.formState.errors.songFile
-                        ? "border-red-500"
-                        : "border-zinc-600",
+                        ? "border-destructive"
+                        : "border-border",
                     )}
                   >
-                    <FileMusic size={40} className="text-zinc-400" />
-                    <p className="mb-0 mt-2 text-sm text-blue-200">
+                    <span className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
+                    <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary text-primary transition-transform duration-300 group-hover:scale-105">
+                      <FileMusic size={28} />
+                    </span>
+                    <p className="max-w-[80%] truncate text-sm font-medium text-foreground">
                       {form.getValues("songFile")?.name ||
-                        "Choose audio file or drag & drop"}
+                        "Drop your audio file here"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      or click to browse — metadata is extracted automatically
                     </p>
                     <Input
                       type="file"
@@ -328,17 +380,23 @@ export default function SongUploadForm() {
               </FormControl>
 
               {status && (
-                <div className="flex flex-col gap-1 mt-3">
-                  <p className="text-xs text-blue-300">
-                    {status} ({progress}%)
-                  </p>
-                  <Progress value={progress} className="h-2 bg-zinc-700" />
+                <div className="mt-4 flex flex-col gap-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-primary">{status}</span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {progress}%
+                    </span>
+                  </div>
+                  <Progress value={progress} className="h-1.5" />
                 </div>
               )}
 
               {fileSize && (
-                <div className="mt-2">
-                  <Badge variant="secondary" className="text-xs px-2 py-1">
+                <div className="mt-3">
+                  <Badge
+                    variant="secondary"
+                    className="rounded-full px-3 py-1 text-xs font-medium"
+                  >
                     {`Size: ${(fileSize / (1024 * 1024)).toFixed(2)} MB`}
                   </Badge>
                 </div>
@@ -346,72 +404,199 @@ export default function SongUploadForm() {
             </FormItem>
           )}
         />
-        <hr />
 
-        {/* Title */}
-        <TextInputField
-          name="title"
-          control={form.control}
-          label="Title"
-          placeholder="song title"
+        {/* ---------------- Basic Info ---------------- */}
+        <SectionHead
           icon={Music2}
-        />
+          title="Basic Info"
+          hint="Core metadata for the track"
+        >
+          <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+            <TextInputField
+              name="title"
+              control={form.control}
+              label="Title"
+              placeholder="song title"
+              icon={Music2}
+            />
+            <TextInputField
+              name="album"
+              control={form.control}
+              label="Album"
+              placeholder="song album"
+              icon={Disc3}
+            />
+            <TextInputField
+              name="language"
+              control={form.control}
+              label="Language"
+              placeholder="audio language"
+              icon={Languages}
+            />
+            <TextInputField
+              name="releasedYear"
+              control={form.control}
+              label="Released Year"
+              placeholder="released year (YYYY)"
+              icon={Calendar}
+            />
+            <TextInputField
+              name="duration"
+              control={form.control}
+              label="Total Duration"
+              placeholder="duration (seconds)"
+              icon={Hourglass}
+            />
+            <TextInputField
+              name="type"
+              control={form.control}
+              label="Type"
+              placeholder="song, single"
+              icon={FileType}
+            />
+          </div>
 
-        {/* Album */}
-        <TextInputField
-          name="album"
-          control={form.control}
-          label="Album"
-          placeholder="song album"
-          icon={Disc3}
-        />
+          <FormField
+            name="genre"
+            control={form.control}
+            render={() => (
+              <FormItem className="mt-4">
+                <FormLabel className="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">
+                  Genre
+                </FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <CassetteTape className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="genre (comma-seperated)"
+                      defaultValue={genre.join(", ")}
+                      onChange={onGenreChange}
+                      className="h-11 rounded-xl border-border/70 bg-secondary/40 pl-9"
+                    />
+                  </div>
+                </FormControl>
+              </FormItem>
+            )}
+          />
 
-        {/* Artists */}
-        <div className="flex flex-col gap-2">
-          <FormLabel>Artists</FormLabel>
-          <div className="flex gap-2">
+          {genre.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {genre.map((g, i) => (
+                <Badge
+                  key={`${g}-${i}`}
+                  variant="outline"
+                  className="rounded-full border-primary/40 px-3 py-1 text-xs text-primary"
+                >
+                  {g}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </SectionHead>
+
+        {/* ---------------- Cover Images ---------------- */}
+        <SectionHead
+          icon={ImageIcon}
+          title="Cover Images"
+          hint="Storage keys and optional direct URLs"
+        >
+          <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+            <TextInputField
+              name="coverImageKey"
+              control={form.control}
+              label="Cover Image Key"
+              placeholder="covers/filename"
+              icon={FileKey2}
+            />
+            <TextInputField
+              name="albumCoverKey"
+              control={form.control}
+              label="Album Image Key"
+              placeholder="albums/filename"
+              icon={FileKey2}
+            />
+            <TextInputField
+              name="clientCoverImageUrl"
+              control={form.control}
+              label="Cover Image URL (Optional)"
+              placeholder="copy and paste url"
+              icon={Link}
+            />
+            <TextInputField
+              name="clientAlbumCoverUrl"
+              control={form.control}
+              label="Album Image URL (Optional)"
+              placeholder="copy and paste url"
+              icon={Link}
+            />
+          </div>
+        </SectionHead>
+
+        {/* ---------------- Artists ---------------- */}
+        <SectionHead
+          icon={Users}
+          title="Artists & Credits"
+          hint="Add performers, then refine their details"
+        >
+          <div className="flex flex-col gap-2 sm:flex-row">
             <div className="relative flex-1">
-              <Guitar className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Guitar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="artist names (comma-seperated)"
                 value={artistInput}
                 onChange={(e) => setArtistInput(e.target.value)}
-                className="pl-8"
+                className="h-11 rounded-xl border-border/70 bg-secondary/40 pl-9"
               />
             </div>
-            <Button type="button" onClick={addArtist}>
+
+            <Select value={artistRole} onValueChange={setArtistRole}>
+              <SelectTrigger className="h-11 w-full rounded-xl border-border/70 bg-secondary/40 sm:w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="artist">Artist</SelectItem>
+                <SelectItem value="actor">Actor</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button
+              type="button"
+              onClick={addArtist}
+              className="h-11 rounded-xl px-5"
+            >
               <UserPlus className="h-4 w-4" strokeWidth={3} />
+              <span className="sm:hidden">Add artist</span>
             </Button>
           </div>
 
           {artists.length > 0 && (
-            <div className="overflow-x-auto mt-2 rounded-lg border border-border">
+            <div className="mt-4 overflow-x-auto rounded-xl border border-border/70">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[200px] border text-center">
+                  <TableRow className="bg-secondary/40 hover:bg-secondary/40">
+                    <TableHead className="w-[200px] text-xs uppercase tracking-wider">
                       Artist Name
                     </TableHead>
-                    <TableHead className="w-[200px] border text-center">
+                    <TableHead className="w-[160px] text-xs uppercase tracking-wider">
                       Role
                     </TableHead>
-                    <TableHead className="w-[200px] border text-center">
+                    <TableHead className="w-[220px] text-xs uppercase tracking-wider">
                       Bio
                     </TableHead>
-                    <TableHead className="w-[250px] border text-center">
+                    <TableHead className="w-[260px] text-xs uppercase tracking-wider">
                       Image Url
                     </TableHead>
-                    <TableHead className="w-[80px] border text-center">
+                    <TableHead className="w-[70px] text-center text-xs uppercase tracking-wider">
                       Actions
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {artists.map((singer, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="p-2 border">
+                    <TableRow key={idx} className="hover:bg-secondary/20">
+                      <TableCell className="p-2">
                         <Input
-                          className="w-full"
+                          className="h-10 w-full rounded-lg border-transparent bg-secondary/40"
                           value={singer.name}
                           placeholder="Name"
                           onChange={(e) =>
@@ -419,19 +604,25 @@ export default function SongUploadForm() {
                           }
                         />
                       </TableCell>
-                      <TableCell className="p-2 border">
-                        <Input
-                          className="w-full"
+                      <TableCell className="p-2">
+                        <Select
                           value={singer.role}
-                          placeholder="Role"
-                          onChange={(e) =>
-                            updateSinger(idx, "role", e.target.value)
+                          onValueChange={(value) =>
+                            updateSinger(idx, "role", value)
                           }
-                        />
+                        >
+                          <SelectTrigger className="h-10 w-full rounded-lg border-transparent bg-secondary/40">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="artist">Artist</SelectItem>
+                            <SelectItem value="actor">Actor</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </TableCell>
-                      <TableCell className="p-2 border">
+                      <TableCell className="p-2">
                         <Input
-                          className="w-full"
+                          className="h-10 w-full rounded-lg border-transparent bg-secondary/40"
                           value={singer.bio}
                           placeholder="Bio"
                           onChange={(e) =>
@@ -439,9 +630,9 @@ export default function SongUploadForm() {
                           }
                         />
                       </TableCell>
-                      <TableCell className="p-2 border">
+                      <TableCell className="p-2">
                         <Input
-                          className="w-full"
+                          className="h-10 w-full rounded-lg border-transparent bg-secondary/40"
                           value={singer.imageUrl}
                           placeholder="Image Url"
                           onChange={(e) =>
@@ -449,14 +640,15 @@ export default function SongUploadForm() {
                           }
                         />
                       </TableCell>
-                      <TableCell className="p-2 text-center border">
+                      <TableCell className="p-2 text-center">
                         <Button
                           size="icon"
                           type="button"
                           variant="destructive"
+                          className="h-9 w-9 rounded-lg"
                           onClick={() => removeSinger(idx)}
                         >
-                          X
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -465,31 +657,34 @@ export default function SongUploadForm() {
               </Table>
             </div>
           )}
-        </div>
+        </SectionHead>
 
-        {/* Label */}
-        <div className="flex flex-col gap-2">
-          <FormLabel>Label</FormLabel>
-          <div className="overflow-x-auto rounded-lg border border-border">
+        {/* ---------------- Label ---------------- */}
+        <SectionHead
+          icon={Sparkles}
+          title="Label"
+          hint="Rights holder and copyright line"
+        >
+          <div className="overflow-x-auto rounded-xl border border-border/70">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[200px] border text-center">
+                <TableRow className="bg-secondary/40 hover:bg-secondary/40">
+                  <TableHead className="w-[220px] text-xs uppercase tracking-wider">
                     Label Name
                   </TableHead>
-                  <TableHead className="w-[250px] border text-center">
-                    Logo Url
-                  </TableHead>
-                  <TableHead className="w-[250px] border text-center">
+                  <TableHead className="w-[260px] text-xs uppercase tracking-wider">
                     Copyright
+                  </TableHead>
+                  <TableHead className="w-[260px] text-xs uppercase tracking-wider">
+                    Logo Url
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <TableRow>
-                  <TableCell className="p-2 border">
+                <TableRow className="hover:bg-transparent">
+                  <TableCell className="p-2">
                     <Input
-                      className="w-full"
+                      className="h-10 w-full rounded-lg border-transparent bg-secondary/40"
                       value={form.watch("label.name") || ""}
                       placeholder="Label Name"
                       onChange={(e) =>
@@ -500,22 +695,9 @@ export default function SongUploadForm() {
                       }
                     />
                   </TableCell>
-                  <TableCell className="p-2 border">
+                  <TableCell className="p-2">
                     <Input
-                      className="w-full"
-                      value={form.watch("label.logoUrl") || ""}
-                      placeholder="Logo Url"
-                      onChange={(e) =>
-                        form.setValue("label.logoUrl", e.target.value, {
-                          shouldValidate: true,
-                          shouldDirty: true,
-                        })
-                      }
-                    />
-                  </TableCell>
-                  <TableCell className="p-2 border">
-                    <Input
-                      className="w-full"
+                      className="h-10 w-full rounded-lg border-transparent bg-secondary/40"
                       value={form.watch("label.copyright") || ""}
                       placeholder="Copyright"
                       onChange={(e) =>
@@ -526,160 +708,113 @@ export default function SongUploadForm() {
                       }
                     />
                   </TableCell>
+                  <TableCell className="p-2">
+                    <Input
+                      className="h-10 w-full rounded-lg border-transparent bg-secondary/40"
+                      value={form.watch("label.logoUrl") || ""}
+                      placeholder="Logo Url"
+                      onChange={(e) =>
+                        form.setValue("label.logoUrl", e.target.value, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        })
+                      }
+                    />
+                  </TableCell>
                 </TableRow>
               </TableBody>
             </Table>
           </div>
-        </div>
+        </SectionHead>
 
-        {/* Language */}
-        <TextInputField
-          name="language"
-          control={form.control}
-          label="Language"
-          placeholder="audio language"
-          icon={Languages}
-        />
+        {/* ---------------- Lyrics ---------------- */}
+        <SectionHead
+          icon={MicVocal}
+          title="Lyrics"
+          hint="Optional — one line per lyric line"
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-4">
+              <Label className="flex w-fit items-center gap-3 rounded-xl bg-secondary/40 px-4 py-2.5">
+                <span className="text-sm font-medium text-foreground">
+                  Has Lyrics?
+                </span>
+                <Switch checked={showLyrics} onCheckedChange={toggleLyrics} />
+              </Label>
 
-        {/* Released Year */}
-        <TextInputField
-          name="releasedYear"
-          control={form.control}
-          label="Released Year"
-          placeholder="released year (YYYY)"
-          icon={Calendar}
-        />
+              <span className="text-sm text-muted-foreground/70">__BREAK__</span>
+            </div>
 
-        {/* Duration */}
-        <TextInputField
-          name="duration"
-          control={form.control}
-          label="Total Duration"
-          placeholder="duration (seconds)"
-          icon={Hourglass}
-        />
-
-        {/* Type */}
-        <TextInputField
-          name="type"
-          control={form.control}
-          label="Type"
-          placeholder="song, single"
-          icon={FileType}
-        />
-
-        <FormField
-          name="genre"
-          control={form.control}
-          render={() => (
-            <FormItem>
-              <FormLabel>Genre</FormLabel>
-              <FormControl>
+            {showLyrics && (
+              <>
                 <div className="relative">
-                  <CassetteTape className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="genre (comma-seperated)"
-                    defaultValue={genre.join(", ")}
-                    onChange={onGenreChange}
-                    className="pl-8"
+                  <MicVocal className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+                  <Textarea
+                    placeholder="Enter lyrics here"
+                    onChange={handleLyricsChange}
+                    rows={8}
+                    className="rounded-xl border-border/70 bg-secondary/40 pl-9"
                   />
                 </div>
-              </FormControl>
-            </FormItem>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="relative">
+                    <UserPen className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="Enter writer names (comma seperated)"
+                      {...form.register("lyricsData.writers")}
+                      className="h-11 rounded-xl border-border/70 bg-secondary/40 pl-9 capitalize"
+                    />
+                  </div>
+                  <div className="relative">
+                    <Link className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="Lyrics poweredBy (URL) - eg. https://www.musixmatch.com"
+                      {...form.register("lyricsData.poweredBy")}
+                      className="h-11 rounded-xl border-border/70 bg-secondary/40 pl-9"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </SectionHead>
+
+        {/* ---------------- Actions ---------------- */}
+        <div className="panel sticky bottom-4 z-10 flex flex-col gap-3 rounded-2xl p-4">
+          {Object.keys(form.formState.errors).length > 0 && (
+            <div className="flex flex-col gap-1 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              <span className="font-medium">Please fix the following:</span>
+              <ul className="list-inside list-disc space-y-0.5">
+                {Object.entries(form.formState.errors).map(([field, error]) => (
+                  <li key={field}>{`${field} is required`}</li>
+                ))}
+              </ul>
+            </div>
           )}
-        />
 
-        {/* Cover Image Key */}
-        <TextInputField
-          name="coverImageKey"
-          control={form.control}
-          label="Cover Image Key"
-          placeholder="covers/filename"
-          icon={FileKey2}
-        />
-        {/* Album Cover Key */}
-        <TextInputField
-          name="albumCoverKey"
-          control={form.control}
-          label="Album Image Key"
-          placeholder="albums/filename"
-          icon={FileKey2}
-        />
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              type="submit"
+              disabled={form.formState.isSubmitting}
+              className="h-12 flex-1 cursor-pointer rounded-xl text-sm font-semibold tracking-wide"
+            >
+              {form.formState.isSubmitting ? "Saving..." : "Save Song"}
+            </Button>
 
-        {/* Cover Image URL */}
-        <TextInputField
-          name="clientCoverImageUrl"
-          control={form.control}
-          label="Cover Image URL (Optional)"
-          placeholder="copy and paste url"
-          icon={Link}
-        />
-        {/* Album Image URL */}
-        <TextInputField
-          name="clientAlbumCoverUrl"
-          control={form.control}
-          label="Album Image URL (Optional)"
-          placeholder="copy and paste url"
-          icon={Link}
-        />
-
-        <div className="flex flex-col gap-2">
-          <Label>
-            <span>Has Lyrics?</span>
-            <Switch checked={showLyrics} onCheckedChange={toggleLyrics} />
-            <span className="text-muted-foreground/70 pl-3">[__BREAK__]</span>
-          </Label>
-
-          {showLyrics && (
-            <>
-              <div className="relative">
-                <MicVocal className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Textarea
-                  placeholder="Enter lyrics here"
-                  onChange={handleLyricsChange}
-                  rows={8}
-                  className="pl-8"
-                />
-              </div>
-
-              <div className="relative">
-                <UserPen className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Enter writer names (comma seperated)"
-                  {...form.register("lyricsData.writers")}
-                  className="capitalize pl-8"
-                />
-              </div>
-              <div className="relative">
-                <Link className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Lyrics poweredBy (URL) - eg. https://www.musixmatch.com"
-                  {...form.register("lyricsData.poweredBy")}
-                  className="pl-8"
-                />
-              </div>
-            </>
-          )}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={form.formState.isSubmitting}
+              onClick={resetForm}
+              className="h-12 flex-1 cursor-pointer rounded-xl border-border/70 bg-secondary/30 text-sm font-semibold tracking-wide"
+            >
+              Reset
+            </Button>
+          </div>
         </div>
-
-        <Button
-          type="button"
-          disabled={form.formState.isSubmitting}
-          onClick={resetForm}
-          className="cursor-pointer text-white bg-red-500 hover:bg-red-600 py-5.5"
-        >
-          Reset
-        </Button>
-
-        <Button
-          type="submit"
-          disabled={form.formState.isSubmitting}
-          className="cursor-pointer py-6 text-white bg-emerald-600 hover:bg-emerald-700"
-        >
-          {form.formState.isSubmitting ? "Saving..." : "Save Song"}
-        </Button>
       </form>
     </Form>
   );
