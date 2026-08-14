@@ -85,6 +85,7 @@ export const SongProvider = ({ children }) => {
 
   const { setValue, getValues } = form;
   const [showLyrics, setShowLyrics] = useState(false);
+  const [lyricsText, setLyricsText] = useState("");
 
   const toggleLyrics = (checked) => {
     setShowLyrics(checked);
@@ -93,6 +94,7 @@ export const SongProvider = ({ children }) => {
 
   const handleLyricsChange = (e) => {
     const value = e.target.value;
+    setLyricsText(value);
 
     const lines = value
       .split(/\r?\n/)
@@ -103,6 +105,8 @@ export const SongProvider = ({ children }) => {
       shouldDirty: true,
     });
   };
+
+  const resetLyrics = () => setLyricsText("");
 
   // Step 1: upload file and auto-populate metadata
   const uploadPreview = async (file) => {
@@ -203,7 +207,10 @@ export const SongProvider = ({ children }) => {
     }
 
     Object.entries(values).forEach(([key, val]) => {
-      if (["songFile", "artists", "genre", "singersInfo", "label"].includes(key)) return;
+      if (
+        ["songFile", "artists", "genre", "singersInfo", "label"].includes(key)
+      )
+        return;
 
       if (key === "duration") {
         const float = parseFloat(val);
@@ -234,6 +241,8 @@ export const SongProvider = ({ children }) => {
         setShowLyrics,
         toggleLyrics,
         handleLyricsChange,
+        lyricsText,
+        resetLyrics,
       }}
     >
       {children}
