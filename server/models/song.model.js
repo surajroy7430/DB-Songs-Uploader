@@ -4,7 +4,6 @@ const mongoose = require("mongoose");
 const artistSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-    role: String,
     bio: String,
     artistCoverUrl: String,
     albums: [{ type: mongoose.Schema.Types.ObjectId, ref: "Album" }],
@@ -55,7 +54,22 @@ const Label = mongoose.model("Label", labelSchema);
 const songSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
-    artists: [{ type: mongoose.Schema.Types.ObjectId, ref: "Artist" }],
+    artists: [
+      {
+        artist: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Artist",
+          required: true,
+        },
+        role: {
+          type: String,
+          enum: ["artist", "actor"],
+          default: "artist",
+          required: true,
+        },
+        _id: false,
+      },
+    ],
     album: { type: mongoose.Schema.Types.ObjectId, ref: "Album" },
     language: { type: String, required: true },
     type: { type: String, default: "song" },
