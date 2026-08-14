@@ -1,131 +1,429 @@
-"use client";
+const fs = require("fs");
+const path = require("path");
+const { Song, Album, Artist, Label } = require("../models/song.model");
+const { SongSummary } = require("../models/songSummary.model");
+const { extractMetadata } = require("../services/metadata.service");
+const {
+  handleAudioCompression,
+  uploadSongToS3,
+} = require("../services/file.service");
+const { extractAndUploadCover } = require("../services/coverImage.service");
+const { saveSongToDB } = require("../services/song.service");
+const { deleteFromS3, generateSignedUrl } = require("../utils/s3Upload");
 
-import * as React from "react";
-import * as SelectPrimitive from "@radix-ui/react-select";
-import { Check, ChevronDown, ChevronUp } from "lucide-react";
+const uploadFilePreview = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
-import { cn } from "@/lib/utils";
+    const { path, size } = await handleAudioCompression(
+      req.file.path,
+      req.file.mimetype,
+    );
+    const metadata = await extractMetadata(path, req.file.originalname);
 
-const Select = SelectPrimitive.Root;
+    res.json({ ...metadata, fileSize: size, tempPath: path });
+  } catch (error) {
+    console.log("Error preview file", error.message);
+    res.status(500).json({ error: "Failed to extract metadata" });
+  }
+};
 
-const SelectGroup = SelectPrimitive.Group;
+const deletePreviewFile = async (req, res) => {
+  const { tempPath } = req.body;
+  if (!tempPath) return res.status(400).json({ error: "tempPath is required" });
 
-const SelectValue = SelectPrimitive.Value;
+  try {
+    fs.unlinkSync(tempPath);
+    return res.json({ ok: true });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return res.json({ ok: true, message: "Already deleted" });
+    }
+    console.error("Delete preview file error:", error);
+    return res.status(500).json({ error: "Failed to delete preview file" });
+  }
+};
 
-const SelectTrigger = React.forwardRef(({ className, children, ...props }, ref) => (
-  <SelectPrimitive.Trigger
-    ref={ref}
-    className={cn(
-      "flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background cursor-pointer data-[placeholder]:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
-      className,
-    )}
-    {...props}
-  >
-    {children}
-    <SelectPrimitive.Icon asChild>
-      <ChevronDown className="h-4 w-4 opacity-50" />
-    </SelectPrimitive.Icon>
-  </SelectPrimitive.Trigger>
-));
-SelectTrigger.displayName = SelectPrimitive.Trigger.displayName;
+const saveSong = async (req, res) => {
+  let finalPath;
 
-const SelectScrollUpButton = React.forwardRef(({ className, ...props }, ref) => (
-  <SelectPrimitive.ScrollUpButton
-    ref={ref}
-    className={cn("flex cursor-default items-center justify-center py-1", className)}
-    {...props}
-  >
-    <ChevronUp className="h-4 w-4" />
-  </SelectPrimitive.ScrollUpButton>
-));
-SelectScrollUpButton.displayName = SelectPrimitive.ScrollUpButton.displayName;
+  try {
+    const {
+      tempPath,
+      title,
+      album: albumName,
+      label: labelName,
+      labelInfo,
+      releasedYear,
+      language,
+      genre,
+      lyricsData,
+      coverImageKey,
+      albumCoverKey,
+      clientCoverImageUrl,
+      clientAlbumCoverUrl,
+      singersInfo,
+      ...rest
+    } = req.body;
 
-const SelectScrollDownButton = React.forwardRef(({ className, ...props }, ref) => (
-  <SelectPrimitive.ScrollDownButton
-    ref={ref}
-    className={cn("flex cursor-default items-center justify-center py-1", className)}
-    {...props}
-  >
-    <ChevronDown className="h-4 w-4" />
-  </SelectPrimitive.ScrollDownButton>
-));
-SelectScrollDownButton.displayName = SelectPrimitive.ScrollDownButton.displayName;
+    if (!tempPath) return res.status(404).json({ error: "Missing file path" });
 
-const SelectContent = React.forwardRef(({ className, children, position = "popper", ...props }, ref) => (
-  <SelectPrimitive.Portal>
-    <SelectPrimitive.Content
-      ref={ref}
-      className={cn(
-        "relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-(--radix-select-content-transform-origin)",
-        position === "popper" &&
-          "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
-        className,
-      )}
-      position={position}
-      {...props}
-    >
-      <SelectScrollUpButton />
-      <SelectPrimitive.Viewport
-        className={cn(
-          "p-1",
-          position === "popper" &&
-            "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]",
-        )}
-      >
-        {children}
-      </SelectPrimitive.Viewport>
-      <SelectScrollDownButton />
-    </SelectPrimitive.Content>
-  </SelectPrimitive.Portal>
-));
-SelectContent.displayName = SelectPrimitive.Content.displayName;
+    finalPath = tempPath;
 
-const SelectLabel = React.forwardRef(({ className, ...props }, ref) => (
-  <SelectPrimitive.Label
-    ref={ref}
-    className={cn("px-2 py-1.5 text-sm font-semibold", className)}
-    {...props}
-  />
-));
-SelectLabel.displayName = SelectPrimitive.Label.displayName;
+    // --------------- SONG KEY --------------------
+    let songKey = path.basename(finalPath).replace("-compressed", "");
+    songKey = `songs/${songKey}`;
 
-const SelectItem = React.forwardRef(({ className, children, ...props }, ref) => (
-  <SelectPrimitive.Item
-    ref={ref}
-    className={cn(
-      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-      className,
-    )}
-    {...props}
-  >
-    <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
-      <SelectPrimitive.ItemIndicator>
-        <Check className="h-4 w-4" />
-      </SelectPrimitive.ItemIndicator>
-    </span>
-    <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
-  </SelectPrimitive.Item>
-));
-SelectItem.displayName = SelectPrimitive.Item.displayName;
+    // ------------------- Check DB for Duplication -------------
+    const existingSong = await Song.findOne({ title, releasedYear, language });
 
-const SelectSeparator = React.forwardRef(({ className, ...props }, ref) => (
-  <SelectPrimitive.Separator
-    ref={ref}
-    className={cn("-mx-1 my-1 h-px bg-muted", className)}
-    {...props}
-  />
-));
-SelectSeparator.displayName = SelectPrimitive.Separator.displayName;
+    if (existingSong) {
+      return res
+        .status(409)
+        .json({ error: "Song already exists in DB", songId: existingSong._id });
+    }
 
-export {
-  Select,
-  SelectGroup,
-  SelectValue,
-  SelectTrigger,
-  SelectContent,
-  SelectLabel,
-  SelectItem,
-  SelectSeparator,
-  SelectScrollUpButton,
-  SelectScrollDownButton,
+    // ------------------- Upload song to S3 (if not existed) --------------
+    const songUrl = await uploadSongToS3(
+      finalPath,
+      songKey,
+      req.file?.mimetype,
+    );
+
+    // --------------- Cover Images -------------------
+    const coverImageUrl = await extractAndUploadCover({
+      filePath: finalPath,
+      s3Key: coverImageKey,
+      clientUrl: clientCoverImageUrl,
+      checkExists: false,
+    });
+    const albumCoverUrl = await extractAndUploadCover({
+      filePath: finalPath,
+      s3Key: albumCoverKey,
+      clientUrl: clientAlbumCoverUrl,
+      checkExists: true,
+    });
+
+    // ------------- Parse Singers ------------------
+    let artistsArray = [];
+    if (typeof singersInfo === "string") {
+      try {
+        artistsArray = JSON.parse(singersInfo);
+      } catch {
+        artistsArray = [];
+      }
+    } else if (Array.isArray(singersInfo)) {
+      artistsArray = singersInfo;
+    }
+
+    // --------------- Parse Genre ----------------
+    let parsedGenre = {};
+    if (genre) {
+      try {
+        parsedGenre = typeof Genre === "string" ? JSON.parse(genre) : genre;
+      } catch (error) {
+        parsedGenre = {};
+      }
+    }
+
+    if (!Array.isArray(parsedGenre)) {
+      parsedGenre = [parsedGenre];
+    }
+
+    parsedGenre = parsedGenre.map((g) => String(g).trim()).filter(Boolean);
+
+    // --------------- Parse Lyrics ----------------
+    let parsedLyricsData = {};
+    if (lyricsData) {
+      try {
+        parsedLyricsData =
+          typeof lyricsData === "string" ? JSON.parse(lyricsData) : lyricsData;
+      } catch (error) {
+        parsedLyricsData = {};
+      }
+    }
+
+    // ------------- Parse Label ------------------
+    let labelData = { name: labelName || "" };
+    if (labelInfo) {
+      try {
+        const parsedLabel =
+          typeof labelInfo === "string" ? JSON.parse(labelInfo) : labelInfo;
+        labelData = {
+          name: parsedLabel?.name || labelName || "",
+          logoUrl: parsedLabel?.logoUrl || "",
+          copyright: parsedLabel?.copyright || "",
+        };
+      } catch {
+        labelData = { name: labelName || "" };
+      }
+    }
+
+    // ----------------- DB SAVE -------------------
+    const songId = await saveSongToDB({
+      ...rest,
+      title,
+      albumName,
+      labelData,
+      releasedYear,
+      language,
+      songKey,
+      songUrl,
+      coverImageUrl,
+      albumCoverUrl,
+      artistsArray,
+      genre: parsedGenre,
+      lyricsData: parsedLyricsData,
+    });
+
+    res.status(201).json({ message: "Song Saved Successfully", songId });
+  } catch (error) {
+    console.error("error save song from backend", error);
+    res.status(500).json({ error: "Failed to save song" });
+  } finally {
+    const deleteFile = (path) => {
+      if (!path) return;
+      try {
+        fs.unlinkSync(path);
+      } catch (error) {}
+    };
+    deleteFile(finalPath);
+    deleteFile(req.file.path);
+  }
+};
+
+const getAllSongs = async (req, res) => {
+  try {
+    const songs = await Song.find()
+      .populate("album", "name")
+      .populate("artists.artist", "name artistCoverUrl");
+
+    res.json({ count: songs.length, songs });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getSongById = async (req, res) => {
+  try {
+    const song = await Song.findById(req.params.id)
+      .populate("album", "name")
+      .populate("artists.artist", "name artistCoverUrl");
+
+    if (!song) return res.status(404).json({ error: "Song Not Found" });
+
+    res.json(song);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getSongsByAlbum = async (req, res) => {
+  try {
+    const album = await Album.findById(req.params.albumId).populate({
+      path: "songs",
+      populate: [
+        { path: "album", select: "name" },
+        { path: "artists.artist", select: "name" },
+      ],
+    });
+
+    if (!album) return res.status(404).json({ error: "Album Not Found" });
+
+    res.json({
+      album: {
+        _id: album._id,
+        name: album.name,
+        releaseYear: album.releaseYear,
+        albumCoverUrl: album.albumCoverUrl,
+      },
+      songs: album.songs,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getSongsByArtist = async (req, res) => {
+  try {
+    const artist = await Artist.findById(req.params.artistId);
+
+    if (!artist) return res.status(404).json({ error: "Artist Not Found" });
+
+    const { role } = req.query;
+
+    const filter =
+      role === "artist" || role === "actor"
+        ? { artists: { $elemMatch: { artist: artist._id, role } } }
+        : { "artists.artist": artist._id };
+
+    const songs = await Song.find(filter)
+      .populate("album", "name")
+      .populate("artists.artist", "name");
+
+    res.json({
+      artist: {
+        _id: artist._id,
+        name: artist.name,
+        bio: artist.bio,
+        artistCoverUrl: artist.artistCoverUrl,
+      },
+      songs,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getAlbumsByArtist = async (req, res) => {
+  try {
+    const artist = await Artist.findById(req.params.artistId).populate({
+      path: "albums",
+      select: "name releaseYear albumCoverUrl",
+    });
+
+    if (!artist) return res.status(404).json({ error: "Artist Not Found" });
+
+    res.json({
+      artist: {
+        _id: artist._id,
+        name: artist.name,
+        bio: artist.bio,
+        artistCoverUrl: artist.artistCoverUrl,
+      },
+      albums: artist.albums,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getSongSummaryById = async (req, res) => {
+  try {
+    const summary = await SongSummary.findById(req.params.id)
+      .populate({
+        path: "song",
+        populate: [
+          { path: "album", select: "name" },
+          { path: "artists", select: "name role artistCoverUrl" },
+        ],
+      })
+      .populate("label", "name logoUrl description");
+
+    if (!summary)
+      return res.status(404).json({ error: "Song Summary Not Found" });
+
+    res.json(summary);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getDownloadLink = async (req, res) => {
+  try {
+    const song = await Song.findById(req.params.id);
+    if (!song || !song.songUrl)
+      return res
+        .status(404)
+        .json({ error: "Song not found or no url available" });
+
+    const songKey = song.songUrl.split("/").pop();
+
+    const downloadUrl = await generateSignedUrl(`songs/${songKey}`, {
+      ResponseContentDisposition: `attachment; filename="${songKey}"`,
+    });
+
+    res.status(201).json({ downloadUrl });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const deleteSong = async (req, res) => {
+  try {
+    const song = await Song.findById(req.params.id);
+    if (!song) return res.status(404).json({ error: "Song not found" });
+
+    // Delete from aws s3
+    if (song.songUrl) {
+      const songKey = song.songUrl.split("/").pop();
+      await deleteFromS3(`songs/${songKey}`);
+    }
+    if (song.coverImageUrl) {
+      const coverKey = song.coverImageUrl.split("/").pop();
+      await deleteFromS3(`covers/${coverKey}`);
+    }
+
+    // Handle Artists
+    const artists = await Artist.find({ songs: song._id });
+    for (const artist of artists) {
+      if (
+        artist.songs.length === 1 &&
+        artist.songs[0].toString() === song._id.toString()
+      ) {
+        // delete from db
+        await Artist.findByIdAndDelete(artist._id);
+      } else {
+        // remove song reference
+        await Artist.findByIdAndUpdate(artist._id, {
+          $pull: { songs: song._id },
+        });
+      }
+    }
+
+    // Handle Album
+    if (song.album) {
+      const album = await Album.findById(song.album);
+      if (album) {
+        if (
+          album.songs.length === 1 &&
+          album.songs[0].toString() === song._id.toString()
+        ) {
+          // delete cover from s3
+          if (album.albumCoverUrl) {
+            const albumKey = album.albumCoverUrl.split("/").pop();
+            await deleteFromS3(`albums/${albumKey}`);
+          }
+          // delete from db
+          await Album.findByIdAndDelete(album._id);
+        } else {
+          // remove song reference
+          await Album.findByIdAndUpdate(album._id, {
+            $pull: { songs: song._id },
+          });
+        }
+      }
+    }
+
+    const summary = await SongSummary.findOne({ song: song._id });
+    if (summary?.label) {
+      await Label.findByIdAndUpdate(summary.label, {
+        $pull: { songs: song._id },
+      });
+    }
+
+    // Delete the song summary
+    await SongSummary.deleteMany({ song: song._id });
+    // Delete the song document
+    await song.deleteOne();
+
+    res.json({ message: "Song deleted successfully", song: song.title });
+  } catch (error) {
+    console.error("Delete Error:", error);
+    res.status(500).json({ error: "Failed to delete song" });
+  }
+};
+
+module.exports = {
+  uploadFilePreview,
+  deletePreviewFile,
+  saveSong,
+  getAllSongs,
+  getSongById,
+  getSongsByAlbum,
+  getSongsByArtist,
+  getAlbumsByArtist,
+  getSongSummaryById,
+  getDownloadLink,
+  deleteSong,
 };
