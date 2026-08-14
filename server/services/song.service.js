@@ -22,19 +22,17 @@ const saveSongToDB = async ({
   try {
     // Handle Artists
     const artistIds = await Promise.all(
-      artistsArray.map(async ({ name, role, bio, imageUrl }) => {
+      artistsArray.map(async ({ name, bio, imageUrl }) => {
         let artist = await Artist.findOne({ name });
         if (!artist) {
           artist = await Artist.create({
             name,
-            role: role || "",
             bio: bio || "",
             artistCoverUrl: imageUrl || "",
             songs: [],
             albums: [],
           });
         } else {
-          if (role) artist.role = role;
           if (bio) artist.bio = bio;
           if (imageUrl) artist.artistCoverUrl = imageUrl;
 
@@ -43,6 +41,13 @@ const saveSongToDB = async ({
         return artist._id;
       }),
     );
+
+    const songArtists = artistsArray.map((a, idx) => ({
+      artist: artistIds[idx],
+      role: a.role === "actor" ? "actor" : "artist",
+    }));
+
+    const uniqueArtistIds = [...new Set(artistIds.map((id) => id.toString()))];
 
     // Handle Label
     let labelId = null;
@@ -62,10 +67,7 @@ const saveSongToDB = async ({
           label.logoUrl = labelData.logoUrl;
           changed = true;
         }
-        if (
-          labelData.copyright &&
-          labelData.copyright !== label.copyright
-        ) {
+        if (labelData.copyright && labelData.copyright !== label.copyright) {
           label.copyright = labelData.copyright;
           changed = true;
         }
@@ -80,7 +82,7 @@ const saveSongToDB = async ({
       album = await Album.create({
         name: albumName,
         songs: [],
-        artists: artistIds,
+        artists: uniqueArtistIds,
         releaseYear: releasedYear,
         albumCoverUrl,
         label: labelId,
@@ -88,7 +90,7 @@ const saveSongToDB = async ({
     } else {
       await Album.updateOne(
         { _id: album._id },
-        { $addToSet: { artists: { $each: artistIds } } },
+        { $addToSet: { artists: { $each: uniqueArtistIds } } },
       );
     }
     const albumId = album._id;
@@ -96,7 +98,7 @@ const saveSongToDB = async ({
     // Create Song
     const song = await Song.create({
       title,
-      artists: artistIds,
+      artists: songArtists,
       album: albumId,
       language,
       duration,
@@ -110,7 +112,7 @@ const saveSongToDB = async ({
     // Update Artists + Album + Label
     await Promise.all([
       Artist.updateMany(
-        { _id: { $in: artistIds } },
+        { _id: { $in: uniqueArtistIds } },
         { $addToSet: { songs: song._id, albums: albumId } },
       ),
       Album.findByIdAndUpdate(albumId, { $addToSet: { songs: song._id } }),
@@ -158,7 +160,14 @@ const saveSongToDB = async ({
     );
 
     // Song Summary
-    const artistNames = formatArtists(artistsArray, 4);
+    const performers = artistsArray.filter(
+      (a) => (a.role || "artist") === "artist",
+    );
+    const artistNames = formatArtists(
+      performers.length ? performers : artistsArray,
+      4,
+    );
+
     const descriptionData = {
       about: `About ${title}`,
       description: `${title} is a ${language} language song performed by ${artistNames}. The track is from the album ${albumName}, which was released in ${releasedYear}. The duration of the song is ${formatDuration(
