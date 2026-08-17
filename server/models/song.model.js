@@ -40,13 +40,21 @@ const Genre = mongoose.model("Genre", genreSchema);
 // Label Schema
 const labelSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, unique: true },
+    name: { type: String, required: true },
     logoUrl: String,
     copyright: String,
     albums: [{ type: mongoose.Schema.Types.ObjectId, ref: "Album" }],
     songs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Song" }],
   },
   { collection: "Labels", timestamps: true },
+);
+
+labelSchema.index(
+  { name: 1, copyright: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { copyright: { $type: "string" } },
+  },
 );
 const Label = mongoose.model("Label", labelSchema);
 
