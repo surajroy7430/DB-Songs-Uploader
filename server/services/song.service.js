@@ -52,27 +52,45 @@ const saveSongToDB = async ({
     // Handle Label
     let labelId = null;
     if (labelData?.name) {
-      let label = await Label.findOne({ name: labelData.name });
+      const hasCopyright = Boolean(labelData.copyright);
+
+      const labelQuery = hasCopyright
+        ? { name: labelData.name, copyright: labelData.copyright }
+        : { name: labelData.name, copyright: { $in: [null, "", undefined] } };
+
+      let label = await Label.findOne(labelQuery);
+
+      const previousLabel = await Label.findOne({
+        name: labelData.name,
+      });
+
+      const logoUrl =
+        labelData.logoUrl || label?.logoUrl || previousLabel?.logoUrl || "";
+
       if (!label) {
         label = await Label.create({
           name: labelData.name,
-          logoUrl: labelData.logoUrl || "",
           copyright: labelData.copyright || "",
+          logoUrl,
           songs: [],
           albums: [],
         });
       } else {
         let changed = false;
+
+        if (!label.logoUrl && logoUrl) {
+          label.logoUrl = logoUrl;
+          changed = true;
+        }
+
         if (labelData.logoUrl && labelData.logoUrl !== label.logoUrl) {
           label.logoUrl = labelData.logoUrl;
           changed = true;
         }
-        if (labelData.copyright && labelData.copyright !== label.copyright) {
-          label.copyright = labelData.copyright;
-          changed = true;
-        }
+
         if (changed) await label.save();
       }
+
       labelId = label._id;
     }
 
